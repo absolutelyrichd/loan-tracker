@@ -139,10 +139,9 @@
         const monthlySalaryInput = document.getElementById('monthlySalaryInput');
         const checkSalaryButton = document.getElementById('checkSalaryButton');
         const salarySufficiencyMessage = document.getElementById('salarySufficiencyMessage');
-        const bonusInput = document.getElementById('bonusInput');
-        const applyBonusButton = document.getElementById('applyBonusButton');
-        const bonusImpactMessage = document.getElementById('bonusImpactMessage');
-        const totalRemainingDebtAfterBonus = document.getElementById('totalRemainingDebtAfterBonus');
+        // Removed bonus-related elements as per request
+        const estimatedPayoffTimeMessage = document.getElementById('estimatedPayoffTimeMessage');
+
 
         // Global state for tracking which custom option is being edited
         let editingDebtType = null;
@@ -326,7 +325,8 @@
                 displayMessage("Utang berhasil dihapus!", "success");
                 hideLoading();
                 return true;
-            } catch (error) {
+            }
+            catch (error) {
                 console.error("Error deleting debt from Firestore:", error);
                 displayMessage(`Gagal menghapus utang: ${error.message}`, "error");
                 hideLoading();
@@ -670,6 +670,12 @@
                             </span>
                         </div>
                         <div class="flex space-x-2 mt-auto">
+                            ${debt.status === 'Aktif' ? `
+                                <button data-id="${debt.id}"
+                                        class="pay-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-md transition duration-300 ease-in-out transform hover:scale-105">
+                                    Bayar Cicilan
+                                </button>
+                            ` : ''}
                             <button data-id="${debt.id}"
                                     class="edit-button bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded-md transition duration-300 ease-in-out transform hover:scale-105">
                                 Edit
@@ -1128,7 +1134,37 @@
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
             }
+            // Tombol Bayar Cicilan
+            else if (e.target.classList.contains('pay-button')) {
+                const debtId = e.target.dataset.id;
+                await handlePayInstallment(debtId);
+            }
         });
+
+        // Fungsi untuk menangani pembayaran cicilan
+        async function handlePayInstallment(debtId) {
+            if (!userId) {
+                displayMessage("Anda harus masuk untuk menandai utang sebagai dibayar.", "error");
+                return;
+            }
+            const debtToPay = debts.find(debt => debt.id === debtId);
+            if (debtToPay) {
+                displayConfirmation(`Apakah Anda yakin ingin membayar cicilan untuk "${debtToPay.name}"? Ini akan mengurangi sisa bulan dan memperbarui tanggal pembayaran.`, async () => {
+                    let updatedDebt = { ...debtToPay };
+                    updatedDebt.remainingMonths = Math.max(0, updatedDebt.remainingMonths - 1); // Decrease by 1, ensure not negative
+                    updatedDebt.lastPaymentDate = new Date().toISOString().slice(0, 10); // Current date in YYYY-MM-DD format
+
+                    if (updatedDebt.remainingMonths <= 0) {
+                        updatedDebt.status = 'Lunas';
+                        displayMessage(`Utang "${updatedDebt.name}" telah lunas!`, "success");
+                    } else {
+                        displayMessage(`Cicilan "${updatedDebt.name}" berhasil dibayar.`, "success");
+                    }
+                    await saveDebtToFirestore(updatedDebt);
+                    // onSnapshot listener will handle re-rendering
+                });
+            }
+        }
 
         // Event listener untuk tombol Batal Edit
         cancelEditButton.addEventListener('click', () => {
@@ -1210,12 +1246,13 @@
             return new Intl.NumberFormat('id-ID').format(amount);
         }
 
-        // --- Goal 3: Salary Sufficiency Check ---
+        // --- Goal 1: Salary Sufficiency Check (Revisi) ---
         checkSalaryButton.addEventListener('click', () => {
             const monthlySalary = parseFloat(monthlySalaryInput.value);
             if (isNaN(monthlySalary) || monthlySalary <= 0) {
                 displayMessage("Harap masukkan gaji bulanan yang valid.", "error");
                 salarySufficiencyMessage.textContent = '';
+                estimatedPayoffTimeMessage.textContent = '';
                 return;
             }
 
@@ -1223,39 +1260,29 @@
                 return sum + (debt.status === 'Aktif' ? parseFloat(debt.monthlyInstallment) : 0);
             }, 0);
 
-            if (monthlySalary >= totalMonthlyInstallments) {
-                salarySufficiencyMessage.className = 'text-green-700 font-semibold mt-2';
-                salarySufficiencyMessage.textContent = `Gaji Anda cukup untuk membayar total cicilan bulanan (Rp ${formatCurrency(totalMonthlyInstallments)}). Sisa: Rp ${formatCurrency(monthlySalary - totalMonthlyInstallments)}`;
-            } else {
-                salarySufficiencyMessage.className = 'text-red-700 font-semibold mt-2';
-                salarySufficiencyMessage.textContent = `Gaji Anda tidak cukup untuk membayar total cicilan bulanan (Rp ${formatCurrency(totalMonthlyInstallments)}). Kekurangan: Rp ${formatCurrency(totalMonthlyInstallments - monthlySalary)}`;
-            }
-        });
-
-        // --- Goal 4: Bonus/Allowance Impact ---
-        applyBonusButton.addEventListener('click', () => {
-            const bonusAmount = parseFloat(bonusInput.value);
-            if (isNaN(bonusAmount) || bonusAmount < 0) {
-                displayMessage("Harap masukkan jumlah bonus/tunjangan yang valid.", "error");
-                bonusImpactMessage.textContent = '';
-                totalRemainingDebtAfterBonus.textContent = '';
-                return;
-            }
-
-            const totalCurrentRemainingDebt = debts.reduce((sum, debt) => {
+            const totalRemainingActiveDebt = debts.reduce((sum, debt) => {
                 const remaining = (debt.status === 'Aktif') ? (parseFloat(debt.monthlyInstallment) * parseInt(debt.remainingMonths)) : 0;
                 return sum + (isNaN(remaining) ? 0 : remaining);
             }, 0);
 
-            const remainingAfterBonus = totalCurrentRemainingDebt - bonusAmount;
 
-            bonusImpactMessage.className = 'text-blue-700 font-semibold mt-2';
-            bonusImpactMessage.textContent = `Jika bonus Rp ${formatCurrency(bonusAmount)} digunakan untuk membayar utang:`;
-            totalRemainingDebtAfterBonus.className = 'text-blue-800 font-bold text-xl mt-1';
-            totalRemainingDebtAfterBonus.textContent = `Sisa Utang Keseluruhan: Rp ${formatCurrency(Math.max(0, remainingAfterBonus))}`;
+            if (monthlySalary >= totalMonthlyInstallments) {
+                salarySufficiencyMessage.className = 'text-green-700 font-semibold mt-2';
+                salarySufficiencyMessage.textContent = `Gaji Anda cukup untuk membayar total cicilan bulanan (Rp ${formatCurrency(totalMonthlyInstallments)}). Sisa dana: Rp ${formatCurrency(monthlySalary - totalMonthlyInstallments)}`;
 
-            if (remainingAfterBonus < 0) {
-                bonusImpactMessage.textContent += ` (Ada sisa Rp ${formatCurrency(Math.abs(remainingAfterBonus))} setelah semua utang terbayar).`;
+                if (totalMonthlyInstallments > 0) {
+                    const estimatedMonths = totalRemainingActiveDebt / totalMonthlyInstallments;
+                    estimatedPayoffTimeMessage.className = 'text-gray-700 mt-1';
+                    estimatedPayoffTimeMessage.textContent = `Dengan cicilan saat ini, semua utang aktif diperkirakan lunas dalam sekitar ${estimatedMonths.toFixed(1)} bulan.`;
+                } else {
+                    estimatedPayoffTimeMessage.className = 'text-gray-700 mt-1';
+                    estimatedPayoffTimeMessage.textContent = 'Tidak ada utang aktif yang perlu dilunasi.';
+                }
+
+            } else {
+                salarySufficiencyMessage.className = 'text-red-700 font-semibold mt-2';
+                salarySufficiencyMessage.textContent = `Gaji Anda tidak cukup untuk membayar total cicilan bulanan (Rp ${formatCurrency(totalMonthlyInstallments)}). Kekurangan: Rp ${formatCurrency(totalMonthlyInstallments - monthlySalary)}`;
+                estimatedPayoffTimeMessage.textContent = ''; // Clear previous message if not sufficient
             }
         });
 
@@ -1703,11 +1730,17 @@
                         </select>
                     </div>
 
+                    <!-- Layout perubahan: Metode Pembayaran dan Tanggal Pembayaran Terakhir berdampingan -->
                     <div>
                         <label for="paymentMethod" class="block text-sm font-medium text-gray-700 mb-1">Metode Pembayaran (Opsional)</label>
                         <select id="paymentMethod"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
                         </select>
+                    </div>
+                    <div>
+                        <label for="lastPaymentDate" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pembayaran Terakhir (Opsional)</label>
+                        <input type="date" id="lastPaymentDate"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
                     </div>
                     <div id="manualPaymentMethodInputContainer" class="hidden">
                         <label for="manualPaymentMethod" class="block text-sm font-medium text-gray-700 mb-1">Lainnya (Metode Pembayaran)</label>
@@ -1715,11 +1748,6 @@
                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
                     </div>
 
-                    <div class="md:col-span-2">
-                        <label for="lastPaymentDate" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pembayaran Terakhir (Opsional)</label>
-                        <input type="date" id="lastPaymentDate"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
-                    </div>
 
                     <div class="md:col-span-2 flex justify-end space-x-3">
                         <button type="button" id="cancelEditButton"
@@ -1861,22 +1889,7 @@
                             </button>
                         </div>
                         <p id="salarySufficiencyMessage" class="mt-2 text-gray-600"></p>
-                    </div>
-
-                    <!-- Dampak Bonus/Tunjangan -->
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Simulasi Pembayaran dengan Bonus/Tunjangan</h3>
-                        <div class="flex flex-col sm:flex-row gap-2 items-center">
-                            <label for="bonusInput" class="text-sm font-medium text-gray-700">Bonus/Tunjangan (Rp):</label>
-                            <input type="number" id="bonusInput" placeholder="Masukkan jumlah bonus" min="0"
-                                   class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
-                            <button id="applyBonusButton"
-                                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out transform hover:scale-105">
-                                Hitung Dampak
-                            </button>
-                        </div>
-                        <p id="bonusImpactMessage" class="mt-2 text-gray-600"></p>
-                        <p id="totalRemainingDebtAfterBonus" class="mt-1 text-gray-800 font-bold text-xl"></p>
+                        <p id="estimatedPayoffTimeMessage" class="mt-1 text-gray-600"></p>
                     </div>
                 </div>
             </div>
