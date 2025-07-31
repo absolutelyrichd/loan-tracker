@@ -136,10 +136,10 @@
 
         // New elements for debt tracker goals
         const totalRemainingDebtDisplay = document.getElementById('totalRemainingDebtDisplay');
+        const totalMonthlyInstallmentsDisplay = document.getElementById('totalMonthlyInstallmentsDisplay'); // NEW ELEMENT
         const monthlySalaryInput = document.getElementById('monthlySalaryInput');
         const checkSalaryButton = document.getElementById('checkSalaryButton');
         const salarySufficiencyMessage = document.getElementById('salarySufficiencyMessage');
-        // Removed bonus-related elements as per request
         const estimatedPayoffTimeMessage = document.getElementById('estimatedPayoffTimeMessage');
 
 
@@ -638,6 +638,13 @@
                 return sum + (isNaN(remaining) ? 0 : remaining);
             }, 0);
             totalRemainingDebtDisplay.textContent = `Rp ${formatCurrency(totalOverallRemainingDebt)}`;
+
+            // Calculate total monthly installments for active debts
+            const totalMonthlyInstallments = filteredDebts.reduce((sum, debt) => {
+                return sum + (debt.status === 'Aktif' ? parseFloat(debt.monthlyInstallment) : 0);
+            }, 0);
+            totalMonthlyInstallmentsDisplay.textContent = `Rp ${formatCurrency(totalMonthlyInstallments)}`;
+
 
             if (debtsToDisplay.length === 0) {
                 noDebtsMessage.classList.remove('hidden');
@@ -1775,6 +1782,8 @@
                 <div class="mb-6 p-4 bg-indigo-100 rounded-lg shadow-md text-center">
                     <h2 class="text-xl font-semibold text-indigo-800 mb-2">Total Keseluruhan Sisa Utang Aktif Anda</h2>
                     <p id="totalRemainingDebtDisplay" class="text-3xl font-extrabold text-indigo-900">Rp 0</p>
+                    <h3 class="text-lg font-semibold text-indigo-800 mt-4 mb-2">Total Cicilan Bulan Ini</h3>
+                    <p id="totalMonthlyInstallmentsDisplay" class="text-2xl font-bold text-indigo-900">Rp 0</p>
                 </div>
 
                 <!-- Filter -->
