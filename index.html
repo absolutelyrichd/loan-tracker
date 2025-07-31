@@ -122,7 +122,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // Diperbarui: Mengganti signInWithPopup dengan signInWithRedirect
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -285,7 +286,8 @@
         
         // --- Event Listeners ---
         loginBtn.addEventListener('click', () => {
-            signInWithPopup(auth, provider).catch(error => console.error("Login with Google failed:", error));
+            // Diperbarui: Menggunakan signInWithRedirect
+            signInWithRedirect(auth, provider).catch(error => console.error("Login with Google failed:", error));
         });
 
         logoutBtn.addEventListener('click', () => signOut(auth));
