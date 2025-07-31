@@ -136,7 +136,8 @@
 
         // New elements for debt tracker goals
         const totalRemainingDebtDisplay = document.getElementById('totalRemainingDebtDisplay');
-        const totalMonthlyInstallmentsDisplay = document.getElementById('totalMonthlyInstallmentsDisplay'); // NEW ELEMENT
+        const totalMonthlyInstallmentsDisplay = document.getElementById('totalMonthlyInstallmentsDisplay');
+        const currentMonthInstallmentSufficiency = document.getElementById('currentMonthInstallmentSufficiency'); // NEW ELEMENT
         const monthlySalaryInput = document.getElementById('monthlySalaryInput');
         const checkSalaryButton = document.getElementById('checkSalaryButton');
         const salarySufficiencyMessage = document.getElementById('salarySufficiencyMessage');
@@ -148,6 +149,9 @@
         let editingLender = null;
         let editingPaymentMethod = null;
         let editingStatus = null;
+
+        // Global variable for total monthly installments (to be used across tabs)
+        let totalMonthlyInstallmentsForDisplay = 0;
 
 
         // --- Firebase Authentication ---
@@ -640,10 +644,13 @@
             totalRemainingDebtDisplay.textContent = `Rp ${formatCurrency(totalOverallRemainingDebt)}`;
 
             // Calculate total monthly installments for active debts
-            const totalMonthlyInstallments = filteredDebts.reduce((sum, debt) => {
+            totalMonthlyInstallmentsForDisplay = filteredDebts.reduce((sum, debt) => {
                 return sum + (debt.status === 'Aktif' ? parseFloat(debt.monthlyInstallment) : 0);
             }, 0);
-            totalMonthlyInstallmentsDisplay.textContent = `Rp ${formatCurrency(totalMonthlyInstallments)}`;
+            totalMonthlyInstallmentsDisplay.textContent = `Rp ${formatCurrency(totalMonthlyInstallmentsForDisplay)}`;
+
+            // Update current month's sufficiency display
+            updateCurrentMonthInstallmentSufficiencyDisplay();
 
 
             if (debtsToDisplay.length === 0) {
@@ -1253,6 +1260,26 @@
             return new Intl.NumberFormat('id-ID').format(amount);
         }
 
+        // --- Update current month's sufficiency display (NEW FUNCTION) ---
+        function updateCurrentMonthInstallmentSufficiencyDisplay() {
+            const monthlySalary = parseFloat(monthlySalaryInput.value);
+            const currentMonthSufficiencyElement = document.getElementById('currentMonthInstallmentSufficiency');
+
+            if (isNaN(monthlySalary) || monthlySalary <= 0) {
+                currentMonthSufficiencyElement.textContent = 'Masukkan gaji bulanan di tab "Statistik & Analisis" untuk melihat kecukupan cicilan bulan ini.';
+                currentMonthSufficiencyElement.className = 'text-base text-gray-500 mt-2';
+                return;
+            }
+
+            if (monthlySalary >= totalMonthlyInstallmentsForDisplay) {
+                currentMonthSufficiencyElement.className = 'text-base text-green-700 font-semibold mt-2';
+                currentMonthSufficiencyElement.textContent = `Gaji Anda cukup untuk membayar total cicilan bulan ini. Sisa: Rp ${formatCurrency(monthlySalary - totalMonthlyInstallmentsForDisplay)}`;
+            } else {
+                currentMonthSufficiencyElement.className = 'text-base text-red-700 font-semibold mt-2';
+                currentMonthSufficiencyElement.textContent = `Gaji Anda tidak cukup untuk membayar total cicilan bulan ini. Kekurangan: Rp ${formatCurrency(totalMonthlyInstallmentsForDisplay - monthlySalary)}`;
+            }
+        }
+
         // --- Goal 1: Salary Sufficiency Check (Revisi) ---
         checkSalaryButton.addEventListener('click', () => {
             const monthlySalary = parseFloat(monthlySalaryInput.value);
@@ -1539,6 +1566,9 @@
 
             setupEditButtonListener(currentStatusOptionsList, statusOptionInput, 'editingStatus', addStatusOptionButton, cancelEditStatusButton);
             setupCancelEditButtonListener(statusOptionInput, 'editingStatus', addStatusOptionButton, cancelEditStatusButton);
+
+            // Add event listener for monthlySalaryInput to update the display in debt-list tab
+            monthlySalaryInput.addEventListener('input', updateCurrentMonthInstallmentSufficiencyDisplay);
         };
 
         // --- Tab Functionality ---
@@ -1784,6 +1814,7 @@
                     <p id="totalRemainingDebtDisplay" class="text-3xl font-extrabold text-indigo-900">Rp 0</p>
                     <h3 class="text-lg font-semibold text-indigo-800 mt-4 mb-2">Total Cicilan Bulan Ini</h3>
                     <p id="totalMonthlyInstallmentsDisplay" class="text-2xl font-bold text-indigo-900">Rp 0</p>
+                    <p id="currentMonthInstallmentSufficiency" class="text-base text-gray-700 mt-2"></p>
                 </div>
 
                 <!-- Filter -->
