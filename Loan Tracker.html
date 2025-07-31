@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pelacak Utang Pribadi</title>
+    <!-- Memuat Tailwind CSS dari CDN untuk styling yang cepat dan responsif -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Chart.js untuk diagram lingkaran dan batang -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Memuat Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase (MANDATORY)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Fallback Firebase configuration
+        const fallbackFirebaseConfig = {
+            apiKey: "AIzaSyAzJTL179V9bT-DfefZq9gcG8Tz88VzLmQ",
+            authDomain: "koleksi-game.firebaseapp.com",
+            projectId: "koleksi-game",
+            storageBucket: "koleksi-game.firebasestorage.app",
+            messagingSenderId: "222959670551",
+            appId: "1:222959670551:web:048b1e2c4ef16b7bd31352",
+            measurementId: "G-BYYCM7R4M8"
+        };
+        // Use provided firebase config or fallback if not defined/empty
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' && __firebase_config !== '{}' ? __firebase_config : JSON.stringify(fallbackFirebaseConfig));
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // Global variables for debt data and UI elements
+        let debts = [];
+        let customDebtTypes = [];
+        let customLenders = [];
+        let customPaymentMethods = [];
+        let customDebtStatuses = [];
+        let editingDebtId = null;
+        let currentPage = 1;
+        const debtsPerPage = 9;
+        let debtStatusPieChart = null;
+        let debtTypePieChart = null;
+        let lenderPieChart = null;
+        let paymentMethodPieChart = null;
+        let autoDownloadIntervalId = null;
+        let currentAutoDownloadInterval = 5; // Default 5 minutes
+        let userId = null; // User ID from Firebase Auth
+        let isAuthReady = false; // Flag to indicate if auth state has been checked
+
+        // Default options for dropdowns
+        const defaultDebtTypes = ['KTA', 'Kartu Kredit', 'KPR', 'Cicilan Kendaraan', 'Pinjaman Online', 'Pinjaman Perorangan'];
+        const defaultLenders = ['Bank A', 'Bank B', 'Fintech C', 'Koperasi D', 'Perorangan'];
+        const defaultDebtStatuses = ['Aktif', 'Lunas', 'Jatuh Tempo'];
+        const defaultPaymentMethods = ['Transfer Bank', 'Tunai', 'Auto-debet', 'E-wallet'];
+
+        // DOM element references
+        const debtForm = document.getElementById('debtForm');
+        const formTitle = document.getElementById('formTitle');
+        const debtNameInput = document.getElementById('debtName');
+        const debtTypeSelect = document.getElementById('debtType');
+        const manualDebtTypeInputContainer = document.getElementById('manualDebtTypeInputContainer');
+        const manualDebtTypeInput = document.getElementById('manualDebtType');
+        const lenderSelect = document.getElementById('lender');
+        const manualLenderInputContainer = document.getElementById('manualLenderInputContainer');
+        const manualLenderInput = document.getElementById('manualLender');
+        const originalAmountInput = document.getElementById('originalAmount');
+        const monthlyInstallmentInput = document.getElementById('monthlyInstallment');
+        const remainingMonthsInput = document.getElementById('remainingMonths');
+        const debtStatusSelect = document.getElementById('debtStatus');
+        const paymentMethodSelect = document.getElementById('paymentMethod');
+        const manualPaymentMethodInputContainer = document.getElementById('manualPaymentMethodInputContainer');
+        const manualPaymentMethodInput = document.getElementById('manualPaymentMethod');
+        const lastPaymentDateInput = document.getElementById('lastPaymentDate');
+        const submitButton = document.getElementById('submitButton');
+        const cancelEditButton = document.getElementById('cancelEditButton');
+        const debtListContainer = document.getElementById('debtList');
+        const searchDebtInput = document.getElementById('searchDebt');
+        const filterStatusSelect = document.getElementById('filterStatus');
+        const filterDebtTypeSelect = document.getElementById('filterDebtType');
+        const filterLenderSelect = document.getElementById('filterLender');
+        const filterPaymentMethodSelect = document.getElementById('filterPaymentMethod');
+        const sortDebtsSelect = document.getElementById('sortDebts');
+        const noDebtsMessage = document.getElementById('noDebtsMessage');
+        const debtStatusChartCanvas = document.getElementById('debtStatusChart');
+        const debtTypeChartCanvas = document.getElementById('debtTypeChart');
+        const lenderChartCanvas = document.getElementById('lenderChart');
+        const paymentMethodChartCanvas = document.getElementById('paymentMethodChart');
+        const debtStatusLegend = document.getElementById('debtStatusLegend');
+        const debtTypeLegend = document.getElementById('debtTypeLegend');
+        const lenderLegend = document.getElementById('lenderLegend');
+        const paymentMethodLegend = document.getElementById('paymentMethodLegend');
+        const paginationControls = document.getElementById('paginationControls');
+        const exportDataButton = document.getElementById('exportDataButton');
+        const importDataButton = document.getElementById('importDataButton');
+        const importFileInput = document.getElementById('importFileInput');
+        const autoDownloadToggle = document.getElementById('autoDownloadToggle');
+        const autoDownloadIntervalInput = document.getElementById('autoDownloadInterval');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = {
+            'debt-list': document.getElementById('debt-list'),
+            'statistics': document.getElementById('statistics'),
+            'data-management': document.getElementById('data-management')
+        };
+        const debtTypeOptionInput = document.getElementById('debtTypeOptionInput');
+        const addDebtTypeOptionButton = document.getElementById('addDebtTypeOptionButton');
+        const currentDebtTypeOptionsList = document.getElementById('currentDebtTypeOptionsList');
+        const lenderOptionInput = document.getElementById('lenderOptionInput');
+        const addLenderOptionButton = document.getElementById('addLenderOptionButton');
+        const currentLenderOptionsList = document.getElementById('currentLenderOptionsList');
+        const paymentMethodOptionInput = document.getElementById('paymentMethodOptionInput');
+        const addPaymentMethodOptionButton = document.getElementById('addPaymentMethodOptionButton');
+        const currentPaymentMethodOptionsList = document.getElementById('currentPaymentMethodOptionsList');
+        const statusOptionInput = document.getElementById('statusOptionInput');
+        const addStatusOptionButton = document.getElementById('addStatusOptionButton');
+        const currentStatusOptionsList = document.getElementById('currentStatusOptionsList');
+
+        const loginButton = document.getElementById('loginButton');
+        const logoutButton = document.getElementById('logoutButton');
+        const authStatusDiv = document.getElementById('authStatus');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const mainContent = document.getElementById('mainContent');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // New elements for debt tracker goals
+        const totalRemainingDebtDisplay = document.getElementById('totalRemainingDebtDisplay');
+        const monthlySalaryInput = document.getElementById('monthlySalaryInput');
+        const checkSalaryButton = document.getElementById('checkSalaryButton');
+        const salarySufficiencyMessage = document.getElementById('salarySufficiencyMessage');
+        const bonusInput = document.getElementById('bonusInput');
+        const applyBonusButton = document.getElementById('applyBonusButton');
+        const bonusImpactMessage = document.getElementById('bonusImpactMessage');
+        const totalRemainingDebtAfterBonus = document.getElementById('totalRemainingDebtAfterBonus');
+
+
+        // --- Firebase Authentication ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                authStatusDiv.textContent = `Masuk sebagai: ${user.displayName || user.email || 'Pengguna Anonim'}`;
+                userIdDisplay.textContent = `ID Pengguna: ${userId}`;
+                loginButton.classList.add('hidden');
+                logoutButton.classList.remove('hidden');
+                mainContent.classList.remove('hidden'); // Show main content
+                displayMessage(`Berhasil masuk! ID Pengguna: ${userId}`, "success");
+                await loadDataFromFirestore(); // Load data after successful login
+            } else {
+                userId = null;
+                authStatusDiv.textContent = 'Belum masuk';
+                userIdDisplay.textContent = '';
+                loginButton.classList.remove('hidden');
+                logoutButton.classList.add('hidden');
+                mainContent.classList.add('hidden'); // Hide main content if not logged in
+                debts = []; // Clear local debts if logged out
+                customDebtTypes = [];
+                customLenders = [];
+                customPaymentMethods = [];
+                customDebtStatuses = [];
+                renderAll(); // Re-render with empty data
+                displayMessage("Anda telah keluar atau belum masuk. Data tidak akan disimpan.", "info");
+            }
+            isAuthReady = true; // Auth state has been checked
+            hideLoading();
+        });
+
+        async function handleGoogleLogin() {
+            showLoading("Masuk dengan Google...");
+            try {
+                await signInWithPopup(auth, provider);
+                // User will be handled by onAuthStateChanged
+            } catch (error) {
+                console.error("Error signing in with Google:", error);
+                displayMessage(`Gagal masuk dengan Google: ${error.message}`, "error");
+                hideLoading();
+            }
+        }
+
+        async function handleLogout() {
+            showLoading("Keluar...");
+            try {
+                await signOut(auth);
+                // User will be handled by onAuthStateChanged
+            } catch (error) {
+                console.error("Error signing out:", error);
+                displayMessage(`Gagal keluar: ${error.message}`, "error");
+                hideLoading();
+            }
+        }
+
+        // --- Firebase Firestore Data Operations ---
+
+        // Path helpers
+        function getUserDebtsCollectionRef() {
+            if (!userId) {
+                console.error("User ID not available for Firestore operations.");
+                return null;
+            }
+            return collection(db, `artifacts/${appId}/users/${userId}/debtCollection`);
+        }
+
+        function getUserCustomOptionsDocRef() {
+            if (!userId) {
+                console.error("User ID not available for Firestore operations.");
+                return null;
+            }
+            return doc(db, `artifacts/${appId}/users/${userId}/settings/customOptions`);
+        }
+
+        async function loadDataFromFirestore() {
+            if (!userId) return;
+            showLoading("Memuat data dari Firebase...");
+            try {
+                // Load debts
+                const debtsColRef = getUserDebtsCollectionRef();
+                if (debtsColRef) {
+                    onSnapshot(debtsColRef, (snapshot) => {
+                        debts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        currentPage = 1;
+                        renderAll();
+                        hideLoading();
+                    }, (error) => {
+                        console.error("Error listening to debts collection:", error);
+                        displayMessage(`Gagal memuat utang: ${error.message}`, "error");
+                        hideLoading();
+                    });
+                }
+
+                // Load custom options
+                const customOptionsDocRef = getUserCustomOptionsDocRef();
+                if (customOptionsDocRef) {
+                    onSnapshot(customOptionsDocRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            customDebtTypes = data.debtTypes || [];
+                            customLenders = data.lenders || [];
+                            customPaymentMethods = data.paymentMethods || [];
+                            customDebtStatuses = data.debtStatuses || [];
+                        } else {
+                            // If no custom options exist, initialize with empty arrays
+                            customDebtTypes = [];
+                            customLenders = [];
+                            customPaymentMethods = [];
+                            customDebtStatuses = [];
+                        }
+                        updateAllDropdowns();
+                        hideLoading();
+                    }, (error) => {
+                        console.error("Error listening to custom options:", error);
+                        displayMessage(`Gagal memuat opsi kustom: ${error.message}`, "error");
+                        hideLoading();
+                    });
+                }
+            } catch (error) {
+                console.error("Error loading data from Firestore:", error);
+                displayMessage(`Gagal memuat data dari Firebase: ${error.message}`, "error");
+                hideLoading();
+            }
+        }
+
+        async function saveDebtToFirestore(debtData) {
+            if (!userId) {
+                displayMessage("Anda harus masuk untuk menyimpan utang.", "error");
+                return false;
+            }
+            showLoading("Menyimpan utang...");
+            try {
+                const debtsColRef = getUserDebtsCollectionRef();
+                if (!debtsColRef) return false;
+
+                if (debtData.id) { // Update existing debt
+                    const debtDocRef = doc(debtsColRef, debtData.id);
+                    await setDoc(debtDocRef, debtData, { merge: true });
+                    displayMessage("Utang berhasil diperbarui!", "success");
+                } else { // Add new debt
+                    const newDebt = { ...debtData };
+                    const docRef = await addDoc(debtsColRef, newDebt);
+                    newDebt.id = docRef.id; // Get the ID generated by Firestore
+                    displayMessage("Utang berhasil ditambahkan!", "success");
+                }
+                hideLoading();
+                return true;
+            } catch (error) {
+                console.error("Error saving debt to Firestore:", error);
+                displayMessage(`Gagal menyimpan utang: ${error.message}`, "error");
+                hideLoading();
+                return false;
+            }
+        }
+
+        async function deleteDebtFromFirestore(debtId) {
+            if (!userId) {
+                displayMessage("Anda harus masuk untuk menghapus utang.", "error");
+                return false;
+            }
+            showLoading("Menghapus utang...");
+            try {
+                const debtsColRef = getUserDebtsCollectionRef();
+                if (!debtsColRef) return false;
+
+                const debtDocRef = doc(debtsColRef, debtId);
+                await deleteDoc(debtDocRef);
+                displayMessage("Utang berhasil dihapus!", "success");
+                hideLoading();
+                return true;
+            } catch (error) {
+                console.error("Error deleting debt from Firestore:", error);
+                displayMessage(`Gagal menghapus utang: ${error.message}`, "error");
+                hideLoading();
+                return false;
+            }
+        }
+
+        async function saveCustomDropdownOptionsToFirestore() {
+            if (!userId) {
+                displayMessage("Anda harus masuk untuk menyimpan opsi kustom.", "error");
+                return false;
+            }
+            showLoading("Menyimpan opsi kustom...");
+            try {
+                const customOptionsDocRef = getUserCustomOptionsDocRef();
+                if (!customOptionsDocRef) return false;
+
+                await setDoc(customOptionsDocRef, {
+                    debtTypes: customDebtTypes,
+                    lenders: customLenders,
+                    paymentMethods: customPaymentMethods,
+                    debtStatuses: customDebtStatuses
+                });
+                displayMessage("Opsi kustom berhasil disimpan!", "success");
+                hideLoading();
+                return true;
+            } catch (error) {
+                console.error("Error saving custom options to Firestore:", error);
+                displayMessage(`Gagal menyimpan opsi kustom: ${error.message}`, "error");
+                hideLoading();
+                return false;
+            }
+        }
+
+        // --- Generic function to populate a select element ---
+        function populateSelect(selectElement, optionsArray, includeManual = true, addPlaceholder = false) {
+            selectElement.innerHTML = '';
+            if (addPlaceholder) {
+                const placeholderOption = document.createElement('option');
+                placeholderOption.value = "";
+                placeholderOption.textContent = "Pilih Opsi";
+                selectElement.appendChild(placeholderOption);
+            }
+            optionsArray.forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option;
+                opt.textContent = option;
+                selectElement.appendChild(opt);
+            });
+            if (includeManual) {
+                const manualOpt = document.createElement('option');
+                manualOpt.value = 'manual';
+                manualOpt.textContent = 'Lainnya (input manual)';
+                selectElement.appendChild(manualOpt);
+            }
+        }
+
+        // --- Render custom options list in Data Management tab ---
+        function renderCustomOptionsList(optionsArray, listElement) {
+            listElement.innerHTML = '';
+            if (optionsArray.length === 0) {
+                listElement.innerHTML = '<li class="text-gray-500">Belum ada opsi kustom.</li>';
+                return;
+            }
+            optionsArray.forEach(option => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center py-1';
+                li.innerHTML = `
+                    <span>${option}</span>
+                    <button data-value="${option}" class="delete-custom-option-button text-red-500 hover:text-red-700 text-sm font-bold ml-2">Hapus</button>
+                `;
+                listElement.appendChild(li);
+            });
+        }
+
+        // --- Update all relevant dropdowns with default and custom options ---
+        function updateAllDropdowns() {
+            // Combine default and custom options for each category
+            const allDebtTypes = [...new Set([...defaultDebtTypes, ...customDebtTypes])].sort();
+            const allLenders = [...new Set([...defaultLenders, ...customLenders])].sort();
+            const allDebtStatuses = [...new Set([...defaultDebtStatuses, ...customDebtStatuses])].sort();
+            const allPaymentMethods = [...new Set([...defaultPaymentMethods, ...customPaymentMethods])].sort();
+
+            // Populate debt form dropdowns
+            populateSelect(debtTypeSelect, allDebtTypes, true);
+            populateSelect(lenderSelect, allLenders, true);
+            populateSelect(debtStatusSelect, allDebtStatuses, false);
+            populateSelect(paymentMethodSelect, allPaymentMethods, true, true);
+
+            // Populate filter dropdowns (they don't need 'manual' option)
+            populateSelect(filterDebtTypeSelect, ['all', ...allDebtTypes], false);
+            populateSelect(filterLenderSelect, ['all', ...allLenders], false);
+            populateSelect(filterStatusSelect, ['all', ...allDebtStatuses], false);
+            populateSelect(filterPaymentMethodSelect, ['all', ...allPaymentMethods], false);
+
+            // Render custom options lists in data management tab
+            renderCustomOptionsList(customDebtTypes, currentDebtTypeOptionsList);
+            renderCustomOptionsList(customLenders, currentLenderOptionsList);
+            renderCustomOptionsList(customPaymentMethods, currentPaymentMethodOptionsList);
+            renderCustomOptionsList(customDebtStatuses, currentStatusOptionsList);
+
+            // Restore previously selected values for filters if available
+            filterDebtTypeSelect.value = filterDebtTypeSelect.dataset.currentValue || 'all';
+            filterLenderSelect.value = filterLenderSelect.dataset.currentValue || 'all';
+            filterPaymentMethodSelect.value = filterPaymentMethodSelect.dataset.currentValue || 'all';
+            filterStatusSelect.value = filterStatusSelect.dataset.currentValue || 'all';
+        }
+
+        // --- Generic add custom option logic ---
+        async function handleAddCustomOption(inputElement, customArray, listElement) {
+            if (!userId) {
+                displayMessage("Anda harus masuk untuk menambahkan opsi kustom.", "error");
+                return;
+            }
+            const newItem = inputElement.value.trim();
+            if (newItem && !customArray.includes(newItem)) {
+                customArray.push(newItem);
+                await saveCustomDropdownOptionsToFirestore();
+                displayMessage(`${newItem} berhasil ditambahkan!`, "success");
+                inputElement.value = '';
+                updateAllDropdowns(); // Re-populate all dropdowns and lists
+            } else if (customArray.includes(newItem)) {
+                displayMessage(`"${newItem}" sudah ada.`, "error");
+            } else {
+                displayMessage("Harap masukkan nama opsi.", "error");
+            }
+        }
+
+        // --- Generic delete custom option logic ---
+        async function handleDeleteCustomOption(event, customArray) {
+            if (!userId) {
+                displayMessage("Anda harus masuk untuk menghapus opsi kustom.", "error");
+                return;
+            }
+            const itemToDelete = event.target.dataset.value;
+            displayConfirmation(`Apakah Anda yakin ingin menghapus "${itemToDelete}"?`, async () => {
+                const index = customArray.indexOf(itemToDelete);
+                if (index > -1) {
+                    customArray.splice(index, 1);
+                    await saveCustomDropdownOptionsToFirestore();
+                    displayMessage(`"${itemToDelete}" berhasil dihapus.`, "success");
+                    updateAllDropdowns(); // Re-populate all dropdowns and lists
+                }
+            });
+        }
+
+        // Fungsi untuk merender (menampilkan) daftar utang, menerapkan filter dan pengurutan
+        function renderDebts() {
+            debtListContainer.innerHTML = ''; // Mengosongkan daftar yang ada
+            const searchTerm = searchDebtInput.value.toLowerCase();
+            const filterStatus = filterStatusSelect.value;
+            const filterDebtType = filterDebtTypeSelect.value;
+            const filterLender = filterLenderSelect.value;
+            const filterPaymentMethod = filterPaymentMethodSelect.value;
+            const sortOption = sortDebtsSelect.value;
+
+            // Filter utang berdasarkan pencarian dan status
+            let filteredDebts = debts.filter(debt => {
+                const matchesSearch = debt.name.toLowerCase().includes(searchTerm) ||
+                                      debt.type.toLowerCase().includes(searchTerm) ||
+                                      debt.lender.toLowerCase().includes(searchTerm);
+                const matchesStatus = filterStatus === 'all' || debt.status === filterStatus;
+                const matchesDebtType = filterDebtType === 'all' || debt.type === filterDebtType;
+                const matchesLender = filterLender === 'all' || debt.lender === filterLender;
+                const matchesPaymentMethod = filterPaymentMethod === 'all' || debt.paymentMethod === filterPaymentMethod;
+                return matchesSearch && matchesStatus && matchesDebtType && matchesLender && matchesPaymentMethod;
+            });
+
+            // Urutkan utang
+            filteredDebts.sort((a, b) => {
+                switch (sortOption) {
+                    case 'name-asc':
+                        return a.name.localeCompare(b.name);
+                    case 'name-desc':
+                        return b.name.localeCompare(a.name);
+                    case 'type-asc':
+                        return a.type.localeCompare(b.type);
+                    case 'status-asc':
+                        return a.status.localeCompare(b.status);
+                    case 'remaining-amount-asc':
+                        return (a.monthlyInstallment * a.remainingMonths) - (b.monthlyInstallment * b.remainingMonths);
+                    case 'remaining-amount-desc':
+                        return (b.monthlyInstallment * b.remainingMonths) - (a.monthlyInstallment * a.remainingMonths);
+                    default:
+                        return 0;
+                }
+            });
+
+            // Terapkan pagination
+            const totalPages = Math.ceil(filteredDebts.length / debtsPerPage);
+            const startIndex = (currentPage - 1) * debtsPerPage;
+            const endIndex = startIndex + debtsPerPage;
+            const debtsToDisplay = filteredDebts.slice(startIndex, endIndex);
+
+            // Calculate total remaining debt for display
+            const totalOverallRemainingDebt = filteredDebts.reduce((sum, debt) => {
+                const remaining = (debt.status === 'Aktif') ? (parseFloat(debt.monthlyInstallment) * parseInt(debt.remainingMonths)) : 0;
+                return sum + (isNaN(remaining) ? 0 : remaining);
+            }, 0);
+            totalRemainingDebtDisplay.textContent = `Rp ${formatCurrency(totalOverallRemainingDebt)}`;
+
+            if (debtsToDisplay.length === 0) {
+                noDebtsMessage.classList.remove('hidden');
+                debtListContainer.classList.remove('grid', 'grid-cols-1', 'sm:grid-cols-2', 'md:grid-cols-3', 'lg:grid-cols-3', 'gap-4');
+                debtListContainer.classList.add('space-y-4');
+            } else {
+                noDebtsMessage.classList.add('hidden');
+                debtListContainer.classList.remove('space-y-4');
+                debtListContainer.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2', 'md:grid-cols-3', 'lg:grid-cols-3', 'gap-4');
+
+                debtsToDisplay.forEach(debt => {
+                    const debtItem = document.createElement('div');
+                    debtItem.className = 'bg-gray-50 p-4 rounded-md shadow-sm flex flex-col items-start justify-between';
+
+                    const remainingAmount = parseFloat(debt.monthlyInstallment) * parseInt(debt.remainingMonths);
+                    const displayRemainingAmount = isNaN(remainingAmount) ? 'N/A' : `Rp ${formatCurrency(remainingAmount)}`;
+
+                    debtItem.innerHTML = `
+                        <div class="flex-grow w-full mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">${debt.name}</h3>
+                            <p class="text-sm text-gray-600">Tipe: ${debt.type}</p>
+                            <p class="text-sm text-gray-600">Pemberi Pinjaman: ${debt.lender}</p>
+                            <p class="text-sm text-gray-600">Cicilan Bulanan: Rp ${formatCurrency(debt.monthlyInstallment)}</p>
+                            <p class="text-sm text-gray-600">Sisa Bulan: ${debt.remainingMonths} bulan</p>
+                            <p class="text-sm text-gray-800 font-bold">Sisa Utang: ${displayRemainingAmount}</p>
+                            <p class="text-sm text-gray-600">Metode Pembayaran: ${debt.paymentMethod || '-'}</p>
+                            <p class="text-sm text-gray-600">Terakhir Dibayar: ${debt.lastPaymentDate || '-'}</p>
+                            <span class="inline-block px-3 py-1 text-xs font-medium rounded-full ${getStatusColorClass(debt.status)}">
+                                ${debt.status}
+                            </span>
+                        </div>
+                        <div class="flex space-x-2 mt-auto">
+                            <button data-id="${debt.id}"
+                                    class="edit-button bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded-md transition duration-300 ease-in-out transform hover:scale-105">
+                                Edit
+                            </button>
+                            <button data-id="${debt.id}"
+                                    class="delete-button bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md transition duration-300 ease-in-out transform hover:scale-105">
+                                Hapus
+                            </button>
+                        </div>
+                    `;
+                    debtListContainer.appendChild(debtItem);
+                });
+            }
+
+            // Render pagination controls
+            renderPaginationControls(totalPages);
+        }
+
+        // Fungsi untuk merender kontrol paginasi
+        function renderPaginationControls(totalPages) {
+            paginationControls.innerHTML = ''; // Kosongkan kontrol yang ada
+
+            if (totalPages <= 1) {
+                return; // Jangan tampilkan paginasi jika hanya ada satu halaman atau kurang
+            }
+
+            // Tombol Sebelumnya
+            const prevButton = document.createElement('button');
+            prevButton.textContent = 'Sebelumnya';
+            prevButton.className = `px-4 py-2 rounded-md transition duration-300 ${currentPage === 1 ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white'}`;
+            prevButton.disabled = currentPage === 1;
+            prevButton.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderDebts();
+                }
+            });
+            paginationControls.appendChild(prevButton);
+
+            // Nomor Halaman
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                pageButton.className = `px-4 py-2 rounded-md transition duration-300 ${currentPage === i ? 'bg-blue-700 text-white font-bold' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`;
+                pageButton.addEventListener('click', () => {
+                    currentPage = i;
+                    renderDebts();
+                });
+                paginationControls.appendChild(pageButton);
+            }
+
+            // Tombol Berikutnya
+            const nextButton = document.createElement('button');
+            nextButton.textContent = 'Berikutnya';
+            nextButton.className = `px-4 py-2 rounded-md transition duration-300 ${currentPage === totalPages ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white'}`;
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderDebts();
+                }
+            });
+            paginationControls.appendChild(nextButton);
+        }
+
+        // Fungsi pembantu untuk mendapatkan warna status
+        function getStatusColorClass(status) {
+            switch (status) {
+                case 'Aktif':
+                    return 'bg-emerald-200 text-emerald-800';
+                case 'Lunas':
+                    return 'bg-sky-200 text-sky-800';
+                case 'Jatuh Tempo':
+                    return 'bg-red-200 text-red-800';
+                default:
+                    return 'bg-gray-300 text-gray-800';
+            }
+        }
+
+        // Fungsi untuk merender statistik koleksi
+        function renderStatistics() {
+            const totalActiveDebts = debts.filter(d => d.status === 'Aktif').length;
+
+            const statusCounts = debts.reduce((acc, debt) => {
+                acc[debt.status] = (acc[debt.status] || 0) + 1;
+                return acc;
+            }, {});
+
+            const debtTypeCounts = debts.reduce((acc, debt) => {
+                if (debt.type) {
+                    acc[debt.type] = (acc[debt.type] || 0) + 1;
+                }
+                return acc;
+            }, {});
+
+            const lenderCounts = debts.reduce((acc, debt) => {
+                if (debt.lender) {
+                    acc[debt.lender] = (acc[debt.lender] || 0) + 1;
+                }
+                return acc;
+            }, {});
+
+            const paymentMethodCounts = debts.reduce((acc, debt) => {
+                if (debt.paymentMethod) {
+                    acc[debt.paymentMethod] = (acc[debt.paymentMethod] || 0) + 1;
+                }
+                return acc;
+            }, {});
+
+            // Data untuk Chart Status Utang
+            const statusLabels = Object.keys(statusCounts);
+            const statusData = Object.values(statusCounts);
+            const statusColors = statusLabels.map(status => {
+                switch (status) {
+                    case 'Aktif': return 'rgb(16, 185, 129)'; // emerald-500
+                    case 'Lunas': return 'rgb(14, 165, 233)'; // sky-500
+                    case 'Jatuh Tempo': return 'rgb(239, 68, 68)'; // red-500
+                    default: return 'rgb(156, 163, 175)'; // gray-400
+                }
+            });
+
+            // Data untuk Chart Tipe Utang
+            const debtTypeLabels = Object.keys(debtTypeCounts);
+            const debtTypeData = Object.values(debtTypeCounts);
+            const debtTypeColors = debtTypeLabels.map((_, i) => `hsl(${i * 60}, 70%, 60%)`);
+
+            // Data untuk Chart Pemberi Pinjaman
+            const lenderLabels = Object.keys(lenderCounts);
+            const lenderData = Object.values(lenderCounts);
+            const lenderColors = lenderLabels.map((_, i) => `hsl(${i * 45 + 120}, 70%, 50%)`);
+
+            // Data untuk Chart Metode Pembayaran
+            const paymentMethodLabels = Object.keys(paymentMethodCounts);
+            const paymentMethodData = Object.values(paymentMethodCounts);
+            const paymentMethodColors = paymentMethodLabels.map((_, i) => `hsl(${i * 90 + 30}, 80%, 50%)`);
+
+            // Hancurkan chart yang ada jika ada
+            if (debtStatusPieChart) {
+                debtStatusPieChart.destroy();
+            }
+            if (debtTypePieChart) {
+                debtTypePieChart.destroy();
+            }
+            if (lenderPieChart) {
+                lenderPieChart.destroy();
+            }
+            if (paymentMethodPieChart) {
+                paymentMethodPieChart.destroy();
+            }
+
+            // Inisialisasi Chart Status Utang
+            debtStatusPieChart = new Chart(debtStatusChartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: statusLabels,
+                    datasets: [{
+                        data: statusData,
+                        backgroundColor: statusColors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: false,
+                            text: 'Statistik Utang Berdasarkan Status'
+                        }
+                    }
+                }
+            });
+
+            // Buat legend kustom untuk status
+            debtStatusLegend.innerHTML = `
+                <div class="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                    <div class="flex items-center">
+                        <span class="inline-block w-3 h-3 rounded-full bg-blue-200 mr-2"></span>
+                        <span class="text-gray-700 font-semibold">Total Utang Aktif: ${totalActiveDebts}</span>
+                    </div>
+                    ${statusLabels.map((label, index) => `
+                        <div class="flex items-center">
+                            <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${statusColors[index]};"></span>
+                            <span class="ml-2 text-gray-700">${label}: ${statusData[index]}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Inisialisasi Chart Tipe Utang
+            debtTypePieChart = new Chart(debtTypeChartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: debtTypeLabels,
+                    datasets: [{
+                        data: debtTypeData,
+                        backgroundColor: debtTypeColors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: false,
+                            text: 'Statistik Tipe Utang'
+                        }
+                    }
+                }
+            });
+
+            // Buat legend kustom untuk tipe utang
+            debtTypeLegend.innerHTML = `
+                <div class="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                    ${debtTypeLabels.map((label, index) => `
+                        <div class="flex items-center">
+                            <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${debtTypeColors[index]};"></span>
+                            <span class="ml-2 text-gray-700">${label}: ${debtTypeData[index]}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Inisialisasi Chart Pemberi Pinjaman
+            lenderPieChart = new Chart(lenderChartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: lenderLabels,
+                    datasets: [{
+                        data: lenderData,
+                        backgroundColor: lenderColors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: false,
+                            text: 'Statistik Pemberi Pinjaman'
+                        }
+                    }
+                }
+            });
+
+            // Buat legend kustom untuk pemberi pinjaman
+            lenderLegend.innerHTML = `
+                <div class="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                    ${lenderLabels.map((label, index) => `
+                        <div class="flex items-center">
+                            <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${lenderColors[index]};"></span>
+                            <span class="ml-2 text-gray-700">${label}: ${lenderData[index]}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            // Inisialisasi Chart Metode Pembayaran
+            paymentMethodPieChart = new Chart(paymentMethodChartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: paymentMethodLabels,
+                    datasets: [{
+                        data: paymentMethodData,
+                        backgroundColor: paymentMethodColors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: false,
+                            text: 'Statistik Metode Pembayaran'
+                        }
+                    }
+                }
+            });
+
+            // Buat legend kustom untuk metode pembayaran
+            paymentMethodLegend.innerHTML = `
+                <div class="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                    ${paymentMethodLabels.map((label, index) => `
+                        <div class="flex items-center">
+                            <span class="inline-block w-3 h-3 rounded-full" style="background-color: ${paymentMethodColors[index]};"></span>
+                            <span class="ml-2 text-gray-700">${label}: ${paymentMethodData[index]}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Event listener untuk submit form (Tambah/Update Utang)
+        debtForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!userId) {
+                displayMessage("Anda harus masuk untuk menambah/mengedit utang.", "error");
+                return;
+            }
+
+            let selectedDebtType = debtTypeSelect.value;
+            if (selectedDebtType === 'manual') {
+                selectedDebtType = manualDebtTypeInput.value.trim();
+                if (!selectedDebtType) {
+                    displayMessage("Harap masukkan nama tipe utang manual.", "error");
+                    return;
+                }
+            }
+
+            let selectedLender = lenderSelect.value;
+            if (selectedLender === 'manual') {
+                selectedLender = manualLenderInput.value.trim();
+                if (!selectedLender) {
+                    displayMessage("Harap masukkan nama pemberi pinjaman manual.", "error");
+                    return;
+                }
+            }
+
+            let selectedPaymentMethod = paymentMethodSelect.value;
+            if (selectedPaymentMethod === 'manual') {
+                selectedPaymentMethod = manualPaymentMethodInput.value.trim();
+                if (!selectedPaymentMethod) {
+                    displayMessage("Harap masukkan nama metode pembayaran manual.", "error");
+                    return;
+                }
+            }
+
+            const debtName = debtNameInput.value.trim();
+            const originalAmount = parseFloat(originalAmountInput.value);
+            const monthlyInstallment = parseFloat(monthlyInstallmentInput.value);
+            const remainingMonths = parseInt(remainingMonthsInput.value);
+            const debtStatus = debtStatusSelect.value;
+            const lastPaymentDate = lastPaymentDateInput.value;
+
+            if (!debtName || !selectedDebtType || !selectedLender || isNaN(originalAmount) || isNaN(monthlyInstallment) || isNaN(remainingMonths) || !debtStatus) {
+                displayMessage("Harap isi semua kolom wajib (Nama Utang, Tipe, Pemberi Pinjaman, Jumlah Awal, Cicilan Bulanan, Sisa Bulan, Status).", "error");
+                return;
+            }
+
+            const debtData = {
+                name: debtName,
+                type: selectedDebtType,
+                lender: selectedLender,
+                originalAmount: originalAmount,
+                monthlyInstallment: monthlyInstallment,
+                remainingMonths: remainingMonths,
+                status: debtStatus,
+                paymentMethod: selectedPaymentMethod,
+                lastPaymentDate: lastPaymentDate,
+            };
+
+            if (editingDebtId !== null) {
+                debtData.id = editingDebtId;
+                await saveDebtToFirestore(debtData);
+                editingDebtId = null;
+                formTitle.textContent = "Tambah Utang Baru";
+                submitButton.textContent = "Tambah Utang";
+                cancelEditButton.classList.add('hidden');
+            } else {
+                await saveDebtToFirestore(debtData);
+            }
+
+            debtForm.reset();
+            manualDebtTypeInputContainer.classList.add('hidden');
+            manualDebtTypeInput.value = '';
+            manualLenderInputContainer.classList.add('hidden');
+            manualLenderInput.value = '';
+            manualPaymentMethodInputContainer.classList.add('hidden');
+            manualPaymentMethodInput.value = '';
+            currentPage = 1;
+            renderAll();
+        });
+
+        // Event listener untuk tombol Edit dan Hapus (menggunakan delegasi event)
+        debtListContainer.addEventListener('click', async (e) => {
+            // Tombol Hapus
+            if (e.target.classList.contains('delete-button')) {
+                const debtId = e.target.dataset.id;
+                displayConfirmation("Apakah Anda yakin ingin menghapus utang ini?", async () => {
+                    await deleteDebtFromFirestore(debtId);
+                    currentPage = 1;
+                    renderAll();
+                });
+            }
+            // Tombol Edit
+            else if (e.target.classList.contains('edit-button')) {
+                const debtId = e.target.dataset.id;
+                const debtToEdit = debts.find(debt => debt.id === debtId);
+                if (debtToEdit) {
+                    debtNameInput.value = debtToEdit.name;
+                    originalAmountInput.value = debtToEdit.originalAmount;
+                    monthlyInstallmentInput.value = debtToEdit.monthlyInstallment;
+                    remainingMonthsInput.value = debtToEdit.remainingMonths;
+                    lastPaymentDateInput.value = debtToEdit.lastPaymentDate || '';
+
+                    const allDebtTypes = [...defaultDebtTypes, ...customDebtTypes];
+                    if (allDebtTypes.includes(debtToEdit.type)) {
+                        debtTypeSelect.value = debtToEdit.type;
+                        manualDebtTypeInputContainer.classList.add('hidden');
+                        manualDebtTypeInput.value = '';
+                    } else {
+                        debtTypeSelect.value = 'manual';
+                        manualDebtTypeInputContainer.classList.remove('hidden');
+                        manualDebtTypeInput.value = debtToEdit.type;
+                    }
+
+                    const allLenders = [...defaultLenders, ...customLenders];
+                    if (allLenders.includes(debtToEdit.lender)) {
+                        lenderSelect.value = debtToEdit.lender;
+                        manualLenderInputContainer.classList.add('hidden');
+                        manualLenderInput.value = '';
+                    } else {
+                        lenderSelect.value = 'manual';
+                        manualLenderInputContainer.classList.remove('hidden');
+                        manualLenderInput.value = debtToEdit.lender;
+                    }
+
+                    debtStatusSelect.value = debtToEdit.status;
+
+                    const allPaymentMethods = [...defaultPaymentMethods, ...customPaymentMethods];
+                    if (allPaymentMethods.includes(debtToEdit.paymentMethod)) {
+                        paymentMethodSelect.value = debtToEdit.paymentMethod;
+                        manualPaymentMethodInputContainer.classList.add('hidden');
+                        manualPaymentMethodInput.value = '';
+                    } else if (debtToEdit.paymentMethod) {
+                        paymentMethodSelect.value = 'manual';
+                        manualPaymentMethodInputContainer.classList.remove('hidden');
+                        manualPaymentMethodInput.value = debtToEdit.paymentMethod;
+                    } else {
+                        paymentMethodSelect.value = '';
+                        manualPaymentMethodInputContainer.classList.add('hidden');
+                        manualPaymentMethodInput.value = '';
+                    }
+
+                    editingDebtId = debtId;
+                    formTitle.textContent = "Edit Utang";
+                    submitButton.textContent = "Update Utang";
+                    cancelEditButton.classList.remove('hidden');
+
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            }
+        });
+
+        // Event listener untuk tombol Batal Edit
+        cancelEditButton.addEventListener('click', () => {
+            editingDebtId = null;
+            debtForm.reset();
+            formTitle.textContent = "Tambah Utang Baru";
+            submitButton.textContent = "Tambah Utang";
+            cancelEditButton.classList.add('hidden');
+            manualDebtTypeInputContainer.classList.add('hidden');
+            manualDebtTypeInput.value = '';
+            manualLenderInputContainer.classList.add('hidden');
+            manualLenderInput.value = '';
+            manualPaymentMethodInputContainer.classList.add('hidden');
+            manualPaymentMethodInput.value = '';
+        });
+
+        // Event listener untuk perubahan dropdown Tipe Utang
+        debtTypeSelect.addEventListener('change', () => {
+            if (debtTypeSelect.value === 'manual') {
+                manualDebtTypeInputContainer.classList.remove('hidden');
+            } else {
+                manualDebtTypeInputContainer.classList.add('hidden');
+                manualDebtTypeInput.value = '';
+            }
+        });
+
+        // Event listener untuk perubahan dropdown Pemberi Pinjaman
+        lenderSelect.addEventListener('change', () => {
+            if (lenderSelect.value === 'manual') {
+                manualLenderInputContainer.classList.remove('hidden');
+            } else {
+                manualLenderInputContainer.classList.add('hidden');
+                manualLenderInput.value = '';
+            }
+        });
+
+        // Event listener for Metode Pembayaran dropdown
+        paymentMethodSelect.addEventListener('change', () => {
+            if (paymentMethodSelect.value === 'manual') {
+                manualPaymentMethodInputContainer.classList.remove('hidden');
+            } else {
+                manualPaymentMethodInputContainer.classList.add('hidden');
+                manualPaymentMethodInput.value = '';
+            }
+        });
+
+        // Event listener untuk pencarian, filter, dan pengurutan
+        searchDebtInput.addEventListener('input', () => {
+            currentPage = 1;
+            renderDebts();
+        });
+        filterStatusSelect.addEventListener('change', () => {
+            currentPage = 1;
+            renderDebts();
+        });
+        sortDebtsSelect.addEventListener('change', () => {
+            currentPage = 1;
+            renderDebts();
+        });
+
+        filterDebtTypeSelect.addEventListener('change', () => {
+            filterDebtTypeSelect.dataset.currentValue = filterDebtTypeSelect.value;
+            currentPage = 1;
+            renderDebts();
+        });
+        filterLenderSelect.addEventListener('change', () => {
+            filterLenderSelect.dataset.currentValue = filterLenderSelect.value;
+            currentPage = 1;
+            renderDebts();
+        });
+        filterPaymentMethodSelect.addEventListener('change', () => {
+            filterPaymentMethodSelect.dataset.currentValue = filterPaymentMethodSelect.value;
+            currentPage = 1;
+            renderDebts();
+        });
+
+        // Helper function to format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('id-ID').format(amount);
+        }
+
+        // --- Goal 3: Salary Sufficiency Check ---
+        checkSalaryButton.addEventListener('click', () => {
+            const monthlySalary = parseFloat(monthlySalaryInput.value);
+            if (isNaN(monthlySalary) || monthlySalary <= 0) {
+                displayMessage("Harap masukkan gaji bulanan yang valid.", "error");
+                salarySufficiencyMessage.textContent = '';
+                return;
+            }
+
+            const totalMonthlyInstallments = debts.reduce((sum, debt) => {
+                return sum + (debt.status === 'Aktif' ? parseFloat(debt.monthlyInstallment) : 0);
+            }, 0);
+
+            if (monthlySalary >= totalMonthlyInstallments) {
+                salarySufficiencyMessage.className = 'text-green-700 font-semibold mt-2';
+                salarySufficiencyMessage.textContent = `Gaji Anda cukup untuk membayar total cicilan bulanan (Rp ${formatCurrency(totalMonthlyInstallments)}). Sisa: Rp ${formatCurrency(monthlySalary - totalMonthlyInstallments)}`;
+            } else {
+                salarySufficiencyMessage.className = 'text-red-700 font-semibold mt-2';
+                salarySufficiencyMessage.textContent = `Gaji Anda tidak cukup untuk membayar total cicilan bulanan (Rp ${formatCurrency(totalMonthlyInstallments)}). Kekurangan: Rp ${formatCurrency(totalMonthlyInstallments - monthlySalary)}`;
+            }
+        });
+
+        // --- Goal 4: Bonus/Allowance Impact ---
+        applyBonusButton.addEventListener('click', () => {
+            const bonusAmount = parseFloat(bonusInput.value);
+            if (isNaN(bonusAmount) || bonusAmount < 0) {
+                displayMessage("Harap masukkan jumlah bonus/tunjangan yang valid.", "error");
+                bonusImpactMessage.textContent = '';
+                totalRemainingDebtAfterBonus.textContent = '';
+                return;
+            }
+
+            const totalCurrentRemainingDebt = debts.reduce((sum, debt) => {
+                const remaining = (debt.status === 'Aktif') ? (parseFloat(debt.monthlyInstallment) * parseInt(debt.remainingMonths)) : 0;
+                return sum + (isNaN(remaining) ? 0 : remaining);
+            }, 0);
+
+            const remainingAfterBonus = totalCurrentRemainingDebt - bonusAmount;
+
+            bonusImpactMessage.className = 'text-blue-700 font-semibold mt-2';
+            bonusImpactMessage.textContent = `Jika bonus Rp ${formatCurrency(bonusAmount)} digunakan untuk membayar utang:`;
+            totalRemainingDebtAfterBonus.className = 'text-blue-800 font-bold text-xl mt-1';
+            totalRemainingDebtAfterBonus.textContent = `Sisa Utang Keseluruhan: Rp ${formatCurrency(Math.max(0, remainingAfterBonus))}`;
+
+            if (remainingAfterBonus < 0) {
+                bonusImpactMessage.textContent += ` (Ada sisa Rp ${formatCurrency(Math.abs(remainingAfterBonus))} setelah semua utang terbayar).`;
+            }
+        });
+
+
+        // Fungsi untuk menampilkan pesan kustom (mengganti alert)
+        function displayMessage(message, type) {
+            const messageBox = document.createElement('div');
+            messageBox.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg text-white z-50 transition-all duration-300 ease-in-out transform ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} opacity-0 translate-y-[-20px]`;
+            messageBox.textContent = message;
+            document.body.appendChild(messageBox);
+
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-0', 'translate-y-[-20px]');
+                messageBox.classList.add('opacity-100', 'translate-y-0');
+            }, 10);
+
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-100', 'translate-y-0');
+                messageBox.classList.add('opacity-0', 'translate-y-[-20px]');
+                messageBox.addEventListener('transitionend', () => messageBox.remove());
+            }, 3000);
+        }
+
+        // Fungsi untuk menampilkan konfirmasi kustom (mengganti confirm)
+        function displayConfirmation(message, onConfirm) {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modalOverlay.innerHTML = `
+                <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+                    <p class="text-lg font-semibold text-gray-800 mb-4">${message}</p>
+                    <div class="flex justify-center space-x-4">
+                        <button id="confirmYes" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">Ya</button>
+                        <button id="confirmNo" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">Tidak</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modalOverlay);
+
+            document.getElementById('confirmYes').addEventListener('click', () => {
+                onConfirm();
+                modalOverlay.remove();
+            });
+
+            document.getElementById('confirmNo').addEventListener('click', () => {
+                modalOverlay.remove();
+            });
+        }
+
+        // Fungsi untuk merender semua komponen yang perlu diperbarui
+        function renderAll() {
+            renderDebts();
+            updateAllDropdowns();
+        }
+
+        // --- Fitur Ekspor Data ke File JSON (digunakan untuk auto-download) ---
+        function exportData() {
+            const dataToExport = {
+                debts: debts,
+                customDebtTypes: customDebtTypes,
+                customLenders: customLenders,
+                customPaymentMethods: customPaymentMethods,
+                customDebtStatuses: customDebtStatuses
+            };
+            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'debt_tracker_data.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            displayMessage("Data utang dan opsi berhasil diunduh!", "success");
+        }
+
+        exportDataButton.addEventListener('click', exportData);
+
+        // --- Fitur Impor Data dari File JSON ---
+        importDataButton.addEventListener('click', () => {
+            importFileInput.click();
+        });
+
+        importFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (importedData && Array.isArray(importedData.debts) && Array.isArray(importedData.customDebtTypes)) {
+                            displayConfirmation("Mengimpor data akan menimpa koleksi utang dan opsi kustom Anda saat ini. Lanjutkan?", async () => {
+                                debts = importedData.debts;
+                                customDebtTypes = importedData.customDebtTypes || [];
+                                customLenders = importedData.lenders || [];
+                                customPaymentMethods = importedData.paymentMethods || [];
+                                customDebtStatuses = importedData.debtStatuses || [];
+
+                                const debtsColRef = getUserDebtsCollectionRef();
+                                if (debtsColRef) {
+                                    const existingDocs = await getDocs(debtsColRef);
+                                    for (const docSnapshot of existingDocs.docs) {
+                                        await deleteDoc(doc(debtsColRef, docSnapshot.id));
+                                    }
+                                }
+
+                                for (const debt of debts) {
+                                    await saveDebtToFirestore(debt);
+                                }
+                                await saveCustomDropdownOptionsToFirestore();
+
+                                displayMessage("Data utang dan opsi berhasil diimpor dan disimpan ke Firebase!", "success");
+                                currentPage = 1;
+                                renderAll();
+                            });
+                        } else {
+                            displayMessage("Format file JSON tidak valid. Pastikan berisi objek dengan 'debts' dan 'customDebtTypes' (dan lainnya).", "error");
+                        }
+                    } catch (error) {
+                        displayMessage("Gagal membaca atau mengurai file JSON. Pastikan formatnya benar.", "error");
+                        console.error("Error importing file:", error);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // --- Fitur Auto-download ---
+        function toggleAutoDownload(enable, intervalMinutes) {
+            if (autoDownloadIntervalId) {
+                clearInterval(autoDownloadIntervalId);
+                autoDownloadIntervalId = null;
+            }
+
+            if (enable && intervalMinutes && intervalMinutes > 0) {
+                const intervalMs = intervalMinutes * 60 * 1000;
+                autoDownloadIntervalId = setInterval(() => {
+                    exportData();
+                }, intervalMs);
+                console.log(`Auto-download diaktifkan setiap ${intervalMinutes} menit.`);
+                displayMessage(`Auto-download diaktifkan setiap ${intervalMinutes} menit!`, "success");
+            } else if (enable && (!intervalMinutes || intervalMinutes <= 0)) {
+                displayMessage("Interval auto-download harus lebih dari 0 menit.", "error");
+                autoDownloadToggle.checked = false;
+            } else {
+                console.log("Auto-download dinonaktifkan.");
+                displayMessage("Auto-download dinonaktifkan.", "success");
+            }
+            localStorage.setItem('autoDownloadEnabled', enable);
+            localStorage.setItem('autoDownloadInterval', intervalMinutes);
+        }
+
+        autoDownloadToggle.addEventListener('change', () => {
+            const enable = autoDownloadToggle.checked;
+            const interval = parseInt(autoDownloadIntervalInput.value);
+            toggleAutoDownload(enable, interval);
+        });
+
+        autoDownloadIntervalInput.addEventListener('change', () => {
+            const enable = autoDownloadToggle.checked;
+            const interval = parseInt(autoDownloadIntervalInput.value);
+            if (interval <= 0) {
+                displayMessage("Interval harus lebih dari 0.", "error");
+                autoDownloadIntervalInput.value = currentAutoDownloadInterval;
+                return;
+            }
+            currentAutoDownloadInterval = interval;
+            toggleAutoDownload(enable, currentAutoDownloadInterval);
+        });
+
+
+        // --- New Event Listeners for adding custom dropdown items ---
+        addDebtTypeOptionButton.addEventListener('click', () => {
+            handleAddCustomOption(debtTypeOptionInput, customDebtTypes, currentDebtTypeOptionsList);
+        });
+        addLenderOptionButton.addEventListener('click', () => {
+            handleAddCustomOption(lenderOptionInput, customLenders, currentLenderOptionsList);
+        });
+        addPaymentMethodOptionButton.addEventListener('click', () => {
+            handleAddCustomOption(paymentMethodOptionInput, customPaymentMethods, currentPaymentMethodOptionsList);
+        });
+        addStatusOptionButton.addEventListener('click', () => {
+            handleAddCustomOption(statusOptionInput, customDebtStatuses, currentStatusOptionsList);
+        });
+
+        // --- New Event Listeners for deleting custom dropdown items (delegation) ---
+        currentDebtTypeOptionsList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-custom-option-button')) {
+                handleDeleteCustomOption(e, customDebtTypes);
+            }
+        });
+        currentLenderOptionsList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-custom-option-button')) {
+                handleDeleteCustomOption(e, customLenders);
+            }
+        });
+        currentPaymentMethodOptionsList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-custom-option-button')) {
+                handleDeleteCustomOption(e, customPaymentMethods);
+            }
+        });
+        currentStatusOptionsList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-custom-option-button')) {
+                handleDeleteCustomOption(e, customDebtStatuses);
+            }
+        });
+
+        // --- Tab Functionality ---
+        function showTab(tabId) {
+            for (const key in tabContents) {
+                if (tabContents.hasOwnProperty(key)) {
+                    tabContents[key].classList.add('hidden');
+                }
+            }
+            tabButtons.forEach(button => {
+                button.classList.remove('active', 'bg-indigo-700', 'text-white', 'border-b-2', 'border-indigo-700');
+                button.classList.add('text-gray-700', 'hover:text-indigo-700');
+            });
+
+            const selectedTabContent = tabContents[tabId];
+            if (selectedTabContent) {
+                selectedTabContent.classList.remove('hidden');
+            }
+            const activeTabButton = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
+            if (activeTabButton) {
+                activeTabButton.classList.add('active', 'bg-indigo-700', 'text-white', 'border-b-2', 'border-indigo-700');
+                activeTabButton.classList.remove('text-gray-700', 'hover:text-indigo-700');
+            }
+
+            if (tabId === 'debt-list') {
+                renderAll();
+            } else if (tabId === 'statistics') {
+                renderStatistics();
+            } else if (tabId === 'data-management') {
+                updateAllDropdowns();
+            }
+        }
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                showTab(button.dataset.tab);
+            });
+        });
+
+        // Loading overlay functions
+        function showLoading(message = "Memuat...") {
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.querySelector('p').textContent = message;
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.add('hidden');
+        }
+
+        // Initial setup on window load
+        window.onload = async function() {
+            showLoading("Menginisialisasi aplikasi...");
+            if (initialAuthToken) {
+                try {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } catch (error) {
+                    console.error("Error signing in with custom token:", error);
+                    displayMessage("Gagal masuk otomatis. Silakan masuk dengan Google.", "error");
+                    hideLoading();
+                }
+            } else {
+                hideLoading();
+            }
+
+            const autoDownloadEnabled = localStorage.getItem('autoDownloadEnabled') === 'true';
+            const storedInterval = localStorage.getItem('autoDownloadInterval');
+            if (storedInterval) {
+                currentAutoDownloadInterval = parseInt(storedInterval);
+            }
+            autoDownloadIntervalInput.value = currentAutoDownloadInterval;
+            autoDownloadToggle.checked = autoDownloadEnabled;
+            toggleAutoDownload(autoDownloadEnabled, currentAutoDownloadInterval);
+
+            showTab('debt-list');
+        };
+
+        loginButton.addEventListener('click', handleGoogleLogin);
+        logoutButton.addEventListener('click', handleLogout);
+
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            font-size: 0.9em;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .tab-button.active {
+            background-color: #4c51bf;
+            color: white;
+            border-bottom-color: #4c51bf;
+            border-bottom-width: 2px;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            z-index: 9999;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8 lg:p-10 bg-gray-100 min-h-screen flex items-center justify-center">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p>Memuat...</p>
+    </div>
+
+    <div class="container mx-auto bg-white rounded-lg shadow-xl p-6 md:p-8 lg:p-10 max-w-4xl w-full">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-6 text-center">Pelacak Utang Pribadi</h1>
+
+        <!-- Authentication Section -->
+        <div class="mb-6 p-4 bg-blue-100 rounded-lg shadow-md flex flex-col sm:flex-row justify-between items-center">
+            <div class="text-blue-800 font-semibold mb-2 sm:mb-0">
+                <span id="authStatus">Belum masuk</span>
+                <p id="userIdDisplay" class="text-sm text-blue-600"></p>
+            </div>
+            <div class="flex space-x-3">
+                <button id="loginButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                    Masuk dengan Google
+                </button>
+                <button id="logoutButton" class="hidden bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-md shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                    Keluar
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content - Hidden until authenticated -->
+        <div id="mainContent" class="hidden">
+            <!-- Form untuk Menambahkan/Mengedit Utang -->
+            <div class="mb-8 p-6 bg-blue-50 rounded-lg shadow-md">
+                <h2 id="formTitle" class="text-xl font-semibold text-blue-800 mb-4">Tambah Utang Baru</h2>
+                <form id="debtForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="md:col-span-2">
+                        <label for="debtName" class="block text-sm font-medium text-gray-700 mb-1">Nama Utang (Misal: KTA Bank X, Cicilan Mobil)</label>
+                        <input type="text" id="debtName" placeholder="Nama Utang" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                    </div>
+
+                    <div>
+                        <label for="debtType" class="block text-sm font-medium text-gray-700 mb-1">Tipe Utang</label>
+                        <select id="debtType"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                        </select>
+                    </div>
+                    <div>
+                        <label for="lender" class="block text-sm font-medium text-gray-700 mb-1">Pemberi Pinjaman</label>
+                        <select id="lender"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                        </select>
+                    </div>
+
+                    <div id="manualDebtTypeInputContainer" class="hidden">
+                        <label for="manualDebtType" class="block text-sm font-medium text-gray-700 mb-1">Lainnya (Tipe Utang)</label>
+                        <input type="text" id="manualDebtType" placeholder="Masukkan tipe utang"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div id="manualLenderInputContainer" class="hidden">
+                        <label for="manualLender" class="block text-sm font-medium text-gray-700 mb-1">Lainnya (Pemberi Pinjaman)</label>
+                        <input type="text" id="manualLender" placeholder="Masukkan nama pemberi pinjaman"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                    </div>
+
+                    <div>
+                        <label for="originalAmount" class="block text-sm font-medium text-gray-700 mb-1">Jumlah Awal Utang (Rp)</label>
+                        <input type="number" id="originalAmount" placeholder="10000000" required min="0"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="monthlyInstallment" class="block text-sm font-medium text-gray-700 mb-1">Cicilan Bulanan (Rp)</label>
+                        <input type="number" id="monthlyInstallment" placeholder="100000" required min="0"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                    </div>
+
+                    <div>
+                        <label for="remainingMonths" class="block text-sm font-medium text-gray-700 mb-1">Sisa Bulan</label>
+                        <input type="number" id="remainingMonths" placeholder="12" required min="0"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                    </div>
+                    <div>
+                        <label for="debtStatus" class="block text-sm font-medium text-gray-700 mb-1">Status Utang</label>
+                        <select id="debtStatus"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="paymentMethod" class="block text-sm font-medium text-gray-700 mb-1">Metode Pembayaran (Opsional)</label>
+                        <select id="paymentMethod"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                        </select>
+                    </div>
+                    <div id="manualPaymentMethodInputContainer" class="hidden">
+                        <label for="manualPaymentMethod" class="block text-sm font-medium text-gray-700 mb-1">Lainnya (Metode Pembayaran)</label>
+                        <input type="text" id="manualPaymentMethod" placeholder="Masukkan metode pembayaran"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="lastPaymentDate" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pembayaran Terakhir (Opsional)</label>
+                        <input type="date" id="lastPaymentDate"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                    </div>
+
+                    <div class="md:col-span-2 flex justify-end space-x-3">
+                        <button type="button" id="cancelEditButton"
+                                class="hidden bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-md shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                            Batal Edit
+                        </button>
+                        <button type="submit" id="submitButton"
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-md shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                            Tambah Utang
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Navigasi Tab -->
+            <div class="flex border-b border-gray-200 mb-6">
+                <button class="tab-button active px-4 py-2 text-lg font-medium text-gray-700 hover:text-indigo-700 transition duration-300 ease-in-out" data-tab="debt-list">Daftar Utang</button>
+                <button class="tab-button px-4 py-2 text-lg font-medium text-gray-700 hover:text-indigo-700 transition duration-300 ease-in-out" data-tab="statistics">Statistik & Analisis</button>
+                <button class="tab-button px-4 py-2 text-lg font-medium text-gray-700 hover:text-indigo-700 transition duration-300 ease-in-out" data-tab="data-management">Pengelolaan Data & Opsi</button>
+            </div>
+
+            <!-- Konten Tab -->
+            <div id="debt-list" class="tab-content">
+                <!-- Total Keseluruhan Sisa Utang -->
+                <div class="mb-6 p-4 bg-indigo-100 rounded-lg shadow-md text-center">
+                    <h2 class="text-xl font-semibold text-indigo-800 mb-2">Total Keseluruhan Sisa Utang Aktif Anda</h2>
+                    <p id="totalRemainingDebtDisplay" class="text-3xl font-extrabold text-indigo-900">Rp 0</p>
+                </div>
+
+                <!-- Filter -->
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-3">Filter & Urutkan</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label for="searchDebt" class="block text-sm font-medium text-gray-700 mb-1">Cari Utang</label>
+                            <input type="text" id="searchDebt" placeholder="Cari berdasarkan nama, tipe, atau pemberi pinjaman..."
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 shadow-sm">
+                        </div>
+                        <div>
+                            <label for="filterStatus" class="block text-sm font-medium text-gray-700 mb-1">Filter Status</label>
+                            <select id="filterStatus"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 shadow-sm">
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filterDebtType" class="block text-sm font-medium text-gray-700 mb-1">Filter Tipe Utang</label>
+                            <select id="filterDebtType"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 shadow-sm">
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filterLender" class="block text-sm font-medium text-gray-700 mb-1">Filter Pemberi Pinjaman</label>
+                            <select id="filterLender"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 shadow-sm">
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filterPaymentMethod" class="block text-sm font-medium text-gray-700 mb-1">Filter Metode Pembayaran</label>
+                            <select id="filterPaymentMethod"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 shadow-sm">
+                            </select>
+                        </div>
+                        <div>
+                            <label for="sortDebts" class="block text-sm font-medium text-gray-700 mb-1">Urutkan Berdasarkan</label>
+                            <select id="sortDebts"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 shadow-sm">
+                                <option value="name-asc">Nama Utang (A-Z)</option>
+                                <option value="name-desc">Nama Utang (Z-A)</option>
+                                <option value="type-asc">Tipe Utang (A-Z)</option>
+                                <option value="status-asc">Status (A-Z)</option>
+                                <option value="remaining-amount-asc">Sisa Utang (Terendah)</option>
+                                <option value="remaining-amount-desc">Sisa Utang (Tertinggi)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daftar Utang -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Daftar Utang Anda</h2>
+                    <div id="debtList" class="space-y-4">
+                        <p id="noDebtsMessage" class="text-gray-500 text-center hidden">Belum ada utang dalam daftar Anda. Tambahkan utang baru di atas!</p>
+                    </div>
+                    <div id="paginationControls" class="flex justify-center items-center mt-6 space-x-2">
+                    </div>
+                </div>
+            </div>
+
+            <div id="statistics" class="tab-content hidden">
+                <!-- Statistik Utang -->
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-md">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-3">Statistik Utang</h2>
+                    <div id="statistics-charts" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div id="debtStatisticsSection" class="p-4 bg-cyan-100 rounded-lg shadow-md flex flex-col items-center">
+                            <h3 class="text-base font-semibold text-cyan-800 mb-2">Statistik Utang (Berdasarkan Status)</h3>
+                            <div class="relative w-full h-64">
+                                <canvas id="debtStatusChart"></canvas>
+                            </div>
+                            <div id="debtStatusLegend" class="mt-4 text-xs"></div>
+                        </div>
+                        <div id="debtTypeStatisticsSection" class="p-4 bg-indigo-100 rounded-lg shadow-md flex flex-col items-center">
+                            <h3 class="text-base font-semibold text-indigo-800 mb-2">Statistik Tipe Utang</h3>
+                            <div class="relative w-full h-64">
+                                <canvas id="debtTypeChart"></canvas>
+                            </div>
+                            <div id="debtTypeLegend" class="mt-4 text-xs"></div>
+                        </div>
+                        <div id="lenderStatisticsSection" class="p-4 bg-purple-100 rounded-lg shadow-md flex flex-col items-center">
+                            <h3 class="text-base font-semibold text-purple-800 mb-2">Statistik Pemberi Pinjaman</h3>
+                            <div class="relative w-full h-64">
+                                <canvas id="lenderChart"></canvas>
+                            </div>
+                            <div id="lenderLegend" class="mt-4 text-xs"></div>
+                        </div>
+                        <div id="paymentMethodStatisticsSection" class="p-4 bg-teal-100 rounded-lg shadow-md flex flex-col items-center">
+                            <h3 class="text-base font-semibold text-teal-800 mb-2">Statistik Metode Pembayaran</h3>
+                            <div class="relative w-full h-64">
+                                <canvas id="paymentMethodChart"></canvas>
+                            </div>
+                            <div id="paymentMethodLegend" class="mt-4 text-xs"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analisis Keuangan -->
+                <div class="mb-6 p-4 bg-green-50 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold text-green-800 mb-3">Analisis Keuangan Anda</h2>
+
+                    <!-- Gaji Cukup untuk Bayar Utang? -->
+                    <div class="mb-4">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Cek Kecukupan Gaji Bulanan</h3>
+                        <div class="flex flex-col sm:flex-row gap-2 items-center">
+                            <label for="monthlySalaryInput" class="text-sm font-medium text-gray-700">Gaji Bulanan (Rp):</label>
+                            <input type="number" id="monthlySalaryInput" placeholder="Masukkan gaji Anda" min="0"
+                                   class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                            <button id="checkSalaryButton"
+                                    class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out transform hover:scale-105">
+                                Cek Kecukupan
+                            </button>
+                        </div>
+                        <p id="salarySufficiencyMessage" class="mt-2 text-gray-600"></p>
+                    </div>
+
+                    <!-- Dampak Bonus/Tunjangan -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-2">Simulasi Pembayaran dengan Bonus/Tunjangan</h3>
+                        <div class="flex flex-col sm:flex-row gap-2 items-center">
+                            <label for="bonusInput" class="text-sm font-medium text-gray-700">Bonus/Tunjangan (Rp):</label>
+                            <input type="number" id="bonusInput" placeholder="Masukkan jumlah bonus" min="0"
+                                   class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                            <button id="applyBonusButton"
+                                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out transform hover:scale-105">
+                                Hitung Dampak
+                            </button>
+                        </div>
+                        <p id="bonusImpactMessage" class="mt-2 text-gray-600"></p>
+                        <p id="totalRemainingDebtAfterBonus" class="mt-1 text-gray-800 font-bold text-xl"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="data-management" class="tab-content hidden">
+                <!-- Tombol untuk Simpan/Muat Data -->
+                <div class="mb-8 p-4 bg-purple-50 rounded-lg shadow-md flex flex-wrap justify-center gap-4">
+                    <h2 class="text-xl font-semibold text-purple-800 w-full text-center mb-3"></h2>
+                    <button id="exportDataButton" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-md shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                        Ekspor Data (JSON)
+                    </button>
+                    <input type="file" id="importFileInput" accept=".json" class="hidden">
+                    <button id="importDataButton" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md shadow-lg transition duration-300 ease-in-out transform hover:scale-105">
+                        Impor Data (JSON)
+                    </button>
+                    <div class="flex items-center justify-center gap-4 w-full mt-4">
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" id="autoDownloadToggle" class="form-checkbox h-5 w-5 text-blue-600 rounded-md">
+                            <label for="autoDownloadToggle" class="text-gray-700 font-medium">Auto-download Data</label>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label for="autoDownloadInterval" class="text-gray-700 font-medium">Interval (menit):</label>
+                            <input type="number" id="autoDownloadInterval" value="5" min="1"
+                                   class="w-20 px-3 py-1 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm text-center">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- New sections for adding dropdown items -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Add Debt Type Option -->
+                    <div class="p-4 bg-gray-50 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah Opsi Tipe Utang</h3>
+                        <div class="flex flex-col sm:flex-row gap-2 mb-2">
+                            <input type="text" id="debtTypeOptionInput" placeholder="Nama Tipe Utang Baru"
+                                   class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                            <button id="addDebtTypeOptionButton"
+                                    class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                                Tambah
+                            </button>
+                        </div>
+                        <div class="mt-4">
+                            <h4 class="text-md font-semibold text-gray-700 mb-2">Opsi kustom aktif:</h4>
+                            <ul id="currentDebtTypeOptionsList" class="list-disc list-inside text-sm text-gray-600">
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Add Lender Option -->
+                    <div class="p-4 bg-gray-50 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah Opsi Pemberi Pinjaman</h3>
+                        <div class="flex flex-col sm:flex-row gap-2 mb-2">
+                            <input type="text" id="lenderOptionInput" placeholder="Nama Pemberi Pinjaman Baru"
+                                   class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                            <button id="addLenderOptionButton"
+                                    class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                                Tambah
+                            </button>
+                        </div>
+                        <div class="mt-4">
+                            <h4 class="text-md font-semibold text-gray-700 mb-2">Opsi kustom aktif:</h4>
+                            <ul id="currentLenderOptionsList" class="list-disc list-inside text-sm text-gray-600">
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Add Payment Method Option -->
+                    <div class="p-4 bg-gray-50 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah Opsi Metode Pembayaran</h3>
+                        <div class="flex flex-col sm:flex-row gap-2 mb-2">
+                            <input type="text" id="paymentMethodOptionInput" placeholder="Nama Metode Pembayaran Baru"
+                                   class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                            <button id="addPaymentMethodOptionButton"
+                                    class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                                Tambah
+                            </button>
+                        </div>
+                        <div class="mt-4">
+                            <h4 class="text-md font-semibold text-gray-700 mb-2">Opsi kustom aktif:</h4>
+                            <ul id="currentPaymentMethodOptionsList" class="list-disc list-inside text-sm text-gray-600">
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Add Status Option -->
+                    <div class="p-4 bg-gray-50 rounded-lg shadow-md">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah Opsi Status Utang</h3>
+                        <div class="flex flex-col sm:flex-row gap-2 mb-2">
+                            <input type="text" id="statusOptionInput" placeholder="Nama Status Baru"
+                                   class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                            <button id="addStatusOptionButton"
+                                    class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                                Tambah
+                            </button>
+                        </div>
+                        <div class="mt-4">
+                            <h4 class="text-md font-semibold text-gray-700 mb-2">Opsi kustom aktif:</h4>
+                            <ul id="currentStatusOptionsList" class="list-disc list-inside text-sm text-gray-600">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
