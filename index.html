@@ -17,14 +17,14 @@
         // Global variables for Firebase (MANDATORY)
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         // Fallback Firebase configuration
-        const firebaseConfig = {
-    apiKey: "AIzaSyCye5vR5CfjVww2BJO90EfVIH0mVsq3Jt8",
-    authDomain: "loan-tracker-c58b3.firebaseapp.com",
-    projectId: "loan-tracker-c58b3",
-    storageBucket: "loan-tracker-c58b3.firebasestorage.app",
-    messagingSenderId: "674547925668",
-    appId: "1:674547925668:web:17e8896c3c7d6c35ea1c31",
-    measurementId: "G-0ZYPY4985T"
+        const fallbackFirebaseConfig = {
+            apiKey: "AIzaSyCye5vR5CfjVww2BJO90EfVIH0mVsq3Jt8",
+            authDomain: "loan-tracker-c58b3.firebaseapp.com",
+            projectId: "loan-tracker-c58b3",
+            storageBucket: "loan-tracker-c58b3.firebasestorage.app",
+            messagingSenderId: "674547925668",
+            appId: "1:674547925668:web:17e8896c3c7d6c35ea1c31",
+            measurementId: "G-0ZYPY4985T"
         };
         // Use provided firebase config or fallback if not defined/empty
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' && __firebase_config !== '{}' ? __firebase_config : JSON.stringify(fallbackFirebaseConfig));
