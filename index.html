@@ -55,8 +55,8 @@
         let isAuthReady = false; // Flag to indicate if auth state has been checked
 
         // Default options for dropdowns
-        const defaultDebtTypes = ['KTA', 'Kartu Kredit', 'KPR', 'Cicilan Kendaraan', 'Pinjaman Online', 'Pinjaman Perorangan'];
-        const defaultLenders = ['Bank A', 'Bank B', 'Fintech C', 'Koperasi D', 'Perorangan'];
+        const defaultDebtTypes = ['KTA']; // Direvisi menjadi hanya 'KTA'
+        const defaultLenders = ['Maybank']; // Direvisi menjadi hanya 'Maybank'
         const defaultDebtStatuses = ['Aktif', 'Lunas', 'Jatuh Tempo'];
         const defaultPaymentMethods = ['Transfer Bank', 'Tunai', 'Auto-debet', 'E-wallet'];
 
@@ -551,15 +551,32 @@
                     customArray.splice(index, 1);
                     console.log(`"${itemToDelete}" removed from local array. New array:`, customArray); // Debug log
 
-                    // Note: For simplicity, this current implementation does NOT automatically update
-                    // existing debts that might still reference the deleted option.
-                    // If a debt uses a deleted option, it will simply display the old value.
-                    // Implementing automatic update/removal of references in debts would require
-                    // iterating through all debts and changing their property, which is a more complex feature.
+                    // Update any debts that might still reference the deleted option.
+                    // Set them to null or a default value, or prompt the user for a replacement.
+                    // For now, we'll just set them to an empty string to avoid breaking display.
+                    for (const debt of debts) {
+                        let debtUpdated = false;
+                        if (event.target.closest('ul').id === 'currentDebtTypeOptionsList' && debt.type === itemToDelete) {
+                            debt.type = ''; // Or set to a default like 'Other'
+                            debtUpdated = true;
+                        } else if (event.target.closest('ul').id === 'currentLenderOptionsList' && debt.lender === itemToDelete) {
+                            debt.lender = '';
+                            debtUpdated = true;
+                        } else if (event.target.closest('ul').id === 'currentPaymentMethodOptionsList' && debt.paymentMethod === itemToDelete) {
+                            debt.paymentMethod = '';
+                            debtUpdated = true;
+                        } else if (event.target.closest('ul').id === 'currentStatusOptionsList' && debt.status === itemToDelete) {
+                            // For status, consider changing to 'Aktif' or another default if applicable
+                            debt.status = 'Aktif'; // Default to 'Aktif' if a status is deleted
+                            debtUpdated = true;
+                        }
+                        if (debtUpdated) {
+                            await saveDebtToFirestore(debt);
+                        }
+                    }
 
                     await saveCustomDropdownOptionsToFirestore(); // This will trigger onSnapshot, which then calls updateAllDropdowns
                     displayMessage(`"${itemToDelete}" berhasil dihapus.`, "success");
-                    // Removed direct call to updateAllDropdowns() here, relying on onSnapshot
                 } else {
                     console.log(`"${itemToDelete}" not found in array.`); // Debug log
                 }
