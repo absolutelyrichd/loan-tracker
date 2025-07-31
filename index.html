@@ -121,6 +121,12 @@
         const addStatusOptionButton = document.getElementById('addStatusOptionButton');
         const currentStatusOptionsList = document.getElementById('currentStatusOptionsList');
 
+        // New DOM references for edit/cancel buttons in Data Management
+        const cancelEditDebtTypeButton = document.getElementById('cancelEditDebtTypeButton');
+        const cancelEditLenderButton = document.getElementById('cancelEditLenderButton');
+        const cancelEditPaymentMethodButton = document.getElementById('cancelEditPaymentMethodButton');
+        const cancelEditStatusButton = document.getElementById('cancelEditStatusButton');
+
         const loginButton = document.getElementById('loginButton');
         const logoutButton = document.getElementById('logoutButton');
         const authStatusDiv = document.getElementById('authStatus');
@@ -137,6 +143,12 @@
         const applyBonusButton = document.getElementById('applyBonusButton');
         const bonusImpactMessage = document.getElementById('bonusImpactMessage');
         const totalRemainingDebtAfterBonus = document.getElementById('totalRemainingDebtAfterBonus');
+
+        // Global state for tracking which custom option is being edited
+        let editingDebtType = null;
+        let editingLender = null;
+        let editingPaymentMethod = null;
+        let editingStatus = null;
 
 
         // --- Firebase Authentication ---
@@ -378,7 +390,10 @@
                 li.className = 'flex justify-between items-center py-1';
                 li.innerHTML = `
                     <span>${option}</span>
-                    <button data-value="${option}" class="delete-custom-option-button text-red-500 hover:text-red-700 text-sm font-bold ml-2">Hapus</button>
+                    <div class="flex space-x-2">
+                        <button data-value="${option}" class="edit-custom-option-button text-blue-500 hover:text-blue-700 text-sm font-bold ml-2">Edit</button>
+                        <button data-value="${option}" class="delete-custom-option-button text-red-500 hover:text-red-700 text-sm font-bold">Hapus</button>
+                    </div>
                 `;
                 listElement.appendChild(li);
             });
@@ -417,43 +432,105 @@
             filterStatusSelect.value = filterStatusSelect.dataset.currentValue || 'all';
         }
 
-        // --- Generic add custom option logic ---
-        async function handleAddCustomOption(inputElement, customArray, listElement) {
+        // Generic function to handle adding/editing custom options
+        async function handleSaveCustomOption(inputElement, customArray, listElement, editingStateVarName, addButton, cancelButton) {
             if (!userId) {
-                displayMessage("Anda harus masuk untuk menambahkan opsi kustom.", "error");
+                displayMessage("Anda harus masuk untuk menyimpan opsi kustom.", "error");
                 return;
             }
             const newItem = inputElement.value.trim();
-            if (newItem && !customArray.includes(newItem)) {
+            if (!newItem) {
+                displayMessage("Harap masukkan nama opsi.", "error");
+                return;
+            }
+
+            // Check if we are editing or adding
+            const isEditing = window[editingStateVarName] !== null;
+            const oldItem = window[editingStateVarName];
+
+            if (isEditing) {
+                // Editing an existing item
+                if (newItem === oldItem) {
+                    displayMessage("Tidak ada perubahan yang dilakukan.", "info");
+                    resetCustomOptionForm(inputElement, editingStateVarName, addButton, cancelButton);
+                    return;
+                }
+                if (customArray.includes(newItem)) { // Check if new item already exists (and is not the old item itself)
+                    displayMessage(`"${newItem}" sudah ada.`, "error");
+                    return;
+                }
+
+                const index = customArray.indexOf(oldItem);
+                if (index > -1) {
+                    customArray[index] = newItem;
+                    // Also update any debts that might use this old option value
+                    debts.forEach(async debt => { // Use async here because saveDebtToFirestore is async
+                        let debtUpdated = false;
+                        if (listElement.id === 'currentDebtTypeOptionsList' && debt.type === oldItem) {
+                            debt.type = newItem;
+                            debtUpdated = true;
+                        } else if (listElement.id === 'currentLenderOptionsList' && debt.lender === oldItem) {
+                            debt.lender = newItem;
+                            debtUpdated = true;
+                        } else if (listElement.id === 'currentPaymentMethodOptionsList' && debt.paymentMethod === oldItem) {
+                            debt.paymentMethod = newItem;
+                            debtUpdated = true;
+                        } else if (listElement.id === 'currentStatusOptionsList' && debt.status === oldItem) {
+                            debt.status = newItem;
+                            debtUpdated = true;
+                        }
+                        if (debtUpdated) {
+                            await saveDebtToFirestore(debt); // Save updated debt
+                        }
+                    });
+                    await saveCustomDropdownOptionsToFirestore();
+                    displayMessage(`"${oldItem}" berhasil diperbarui menjadi "${newItem}"!`, "success");
+                } else {
+                    displayMessage("Opsi yang diedit tidak ditemukan.", "error");
+                }
+            } else {
+                // Adding a new item
+                if (customArray.includes(newItem)) {
+                    displayMessage(`"${newItem}" sudah ada.`, "error");
+                    return;
+                }
                 customArray.push(newItem);
                 await saveCustomDropdownOptionsToFirestore();
                 displayMessage(`${newItem} berhasil ditambahkan!`, "success");
-                inputElement.value = '';
-                updateAllDropdowns(); // Re-populate all dropdowns and lists
-            } else if (customArray.includes(newItem)) {
-                displayMessage(`"${newItem}" sudah ada.`, "error");
-            } else {
-                displayMessage("Harap masukkan nama opsi.", "error");
             }
+
+            resetCustomOptionForm(inputElement, editingStateVarName, addButton, cancelButton);
+            updateAllDropdowns(); // Re-populate all dropdowns and lists
         }
 
-        // --- Generic delete custom option logic ---
-        async function handleDeleteCustomOption(event, customArray) {
-            if (!userId) {
-                displayMessage("Anda harus masuk untuk menghapus opsi kustom.", "error");
-                return;
-            }
-            const itemToDelete = event.target.dataset.value;
-            displayConfirmation(`Apakah Anda yakin ingin menghapus "${itemToDelete}"?`, async () => {
-                const index = customArray.indexOf(itemToDelete);
-                if (index > -1) {
-                    customArray.splice(index, 1);
-                    await saveCustomDropdownOptionsToFirestore();
-                    displayMessage(`"${itemToDelete}" berhasil dihapus.`, "success");
-                    updateAllDropdowns(); // Re-populate all dropdowns and lists
+        function resetCustomOptionForm(inputElement, editingStateVarName, addButton, cancelButton) {
+            inputElement.value = '';
+            window[editingStateVarName] = null; // Reset the editing state variable
+            addButton.textContent = 'Tambah';
+            cancelButton.classList.add('hidden');
+        }
+
+        // Event listener for edit buttons (delegated)
+        function setupEditButtonListener(listElement, inputElement, editingStateVarName, addButton, cancelButton) {
+            listElement.addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-custom-option-button')) {
+                    const itemToEdit = e.target.dataset.value;
+                    inputElement.value = itemToEdit;
+                    window[editingStateVarName] = itemToEdit; // Set the editing state
+                    addButton.textContent = 'Simpan Perubahan';
+                    cancelButton.classList.remove('hidden');
+                    window.scrollTo({ top: inputElement.offsetTop, behavior: 'smooth' }); // Scroll to the input
                 }
             });
         }
+
+        // Event listener for cancel edit buttons
+        function setupCancelEditButtonListener(inputElement, editingStateVarName, addButton, cancelButton) {
+            cancelButton.addEventListener('click', () => {
+                resetCustomOptionForm(inputElement, editingStateVarName, addButton, cancelButton);
+            });
+        }
+
 
         // Fungsi untuk merender (menampilkan) daftar utang, menerapkan filter dan pengurutan
         function renderDebts() {
@@ -1300,16 +1377,16 @@
 
         // --- New Event Listeners for adding custom dropdown items ---
         addDebtTypeOptionButton.addEventListener('click', () => {
-            handleAddCustomOption(debtTypeOptionInput, customDebtTypes, currentDebtTypeOptionsList);
+            handleSaveCustomOption(debtTypeOptionInput, customDebtTypes, currentDebtTypeOptionsList, 'editingDebtType', addDebtTypeOptionButton, cancelEditDebtTypeButton);
         });
         addLenderOptionButton.addEventListener('click', () => {
-            handleAddCustomOption(lenderOptionInput, customLenders, currentLenderOptionsList);
+            handleSaveCustomOption(lenderOptionInput, customLenders, currentLenderOptionsList, 'editingLender', addLenderOptionButton, cancelEditLenderButton);
         });
         addPaymentMethodOptionButton.addEventListener('click', () => {
-            handleAddCustomOption(paymentMethodOptionInput, customPaymentMethods, currentPaymentMethodOptionsList);
+            handleSaveCustomOption(paymentMethodOptionInput, customPaymentMethods, currentPaymentMethodOptionsList, 'editingPaymentMethod', addPaymentMethodOptionButton, cancelEditPaymentMethodButton);
         });
         addStatusOptionButton.addEventListener('click', () => {
-            handleAddCustomOption(statusOptionInput, customDebtStatuses, currentStatusOptionsList);
+            handleSaveCustomOption(statusOptionInput, customDebtStatuses, currentStatusOptionsList, 'editingStatus', addStatusOptionButton, cancelEditStatusButton);
         });
 
         // --- New Event Listeners for deleting custom dropdown items (delegation) ---
@@ -1333,6 +1410,46 @@
                 handleDeleteCustomOption(e, customDebtStatuses);
             }
         });
+
+        // Setup edit and cancel listeners for each custom option type
+        window.onload = async function() {
+            showLoading("Menginisialisasi aplikasi...");
+            if (initialAuthToken) {
+                try {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } catch (error) {
+                    console.error("Error signing in with custom token:", error);
+                    displayMessage("Gagal masuk otomatis. Silakan masuk dengan Google.", "error");
+                    hideLoading();
+                }
+            } else {
+                hideLoading();
+            }
+
+            const autoDownloadEnabled = localStorage.getItem('autoDownloadEnabled') === 'true';
+            const storedInterval = localStorage.getItem('autoDownloadInterval');
+            if (storedInterval) {
+                currentAutoDownloadInterval = parseInt(storedInterval);
+            }
+            autoDownloadIntervalInput.value = currentAutoDownloadInterval;
+            autoDownloadToggle.checked = autoDownloadEnabled;
+            toggleAutoDownload(autoDownloadEnabled, currentAutoDownloadInterval);
+
+            showTab('debt-list');
+
+            // Setup listeners for custom option edit/cancel buttons
+            setupEditButtonListener(currentDebtTypeOptionsList, debtTypeOptionInput, 'editingDebtType', addDebtTypeOptionButton, cancelEditDebtTypeButton);
+            setupCancelEditButtonListener(debtTypeOptionInput, 'editingDebtType', addDebtTypeOptionButton, cancelEditDebtTypeButton);
+
+            setupEditButtonListener(currentLenderOptionsList, lenderOptionInput, 'editingLender', addLenderOptionButton, cancelEditLenderButton);
+            setupCancelEditButtonListener(lenderOptionInput, 'editingLender', addLenderOptionButton, cancelEditLenderButton);
+
+            setupEditButtonListener(currentPaymentMethodOptionsList, paymentMethodOptionInput, 'editingPaymentMethod', addPaymentMethodOptionButton, cancelEditPaymentMethodButton);
+            setupCancelEditButtonListener(paymentMethodOptionInput, 'editingPaymentMethod', addPaymentMethodOptionButton, cancelEditPaymentMethodButton);
+
+            setupEditButtonListener(currentStatusOptionsList, statusOptionInput, 'editingStatus', addStatusOptionButton, cancelEditStatusButton);
+            setupCancelEditButtonListener(statusOptionInput, 'editingStatus', addStatusOptionButton, cancelEditStatusButton);
+        };
 
         // --- Tab Functionality ---
         function showTab(tabId) {
@@ -1380,33 +1497,6 @@
         function hideLoading() {
             loadingOverlay.classList.add('hidden');
         }
-
-        // Initial setup on window load
-        window.onload = async function() {
-            showLoading("Menginisialisasi aplikasi...");
-            if (initialAuthToken) {
-                try {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } catch (error) {
-                    console.error("Error signing in with custom token:", error);
-                    displayMessage("Gagal masuk otomatis. Silakan masuk dengan Google.", "error");
-                    hideLoading();
-                }
-            } else {
-                hideLoading();
-            }
-
-            const autoDownloadEnabled = localStorage.getItem('autoDownloadEnabled') === 'true';
-            const storedInterval = localStorage.getItem('autoDownloadInterval');
-            if (storedInterval) {
-                currentAutoDownloadInterval = parseInt(storedInterval);
-            }
-            autoDownloadIntervalInput.value = currentAutoDownloadInterval;
-            autoDownloadToggle.checked = autoDownloadEnabled;
-            toggleAutoDownload(autoDownloadEnabled, currentAutoDownloadInterval);
-
-            showTab('debt-list');
-        };
 
         loginButton.addEventListener('click', handleGoogleLogin);
         logoutButton.addEventListener('click', handleLogout);
@@ -1763,13 +1853,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Add Debt Type Option -->
                     <div class="p-4 bg-gray-50 rounded-lg shadow-md">
-                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah Opsi Tipe Utang</h3>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah/Edit Opsi Tipe Utang</h3>
                         <div class="flex flex-col sm:flex-row gap-2 mb-2">
                             <input type="text" id="debtTypeOptionInput" placeholder="Nama Tipe Utang Baru"
                                    class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
                             <button id="addDebtTypeOptionButton"
                                     class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
                                 Tambah
+                            </button>
+                            <button id="cancelEditDebtTypeButton"
+                                    class="hidden bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                                Batal Edit
                             </button>
                         </div>
                         <div class="mt-4">
@@ -1781,13 +1875,17 @@
 
                     <!-- Add Lender Option -->
                     <div class="p-4 bg-gray-50 rounded-lg shadow-md">
-                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah Opsi Pemberi Pinjaman</h3>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah/Edit Opsi Pemberi Pinjaman</h3>
                         <div class="flex flex-col sm:flex-row gap-2 mb-2">
                             <input type="text" id="lenderOptionInput" placeholder="Nama Pemberi Pinjaman Baru"
                                    class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
                             <button id="addLenderOptionButton"
                                     class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
                                 Tambah
+                            </button>
+                            <button id="cancelEditLenderButton"
+                                    class="hidden bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                                Batal Edit
                             </button>
                         </div>
                         <div class="mt-4">
@@ -1799,13 +1897,17 @@
 
                     <!-- Add Payment Method Option -->
                     <div class="p-4 bg-gray-50 rounded-lg shadow-md">
-                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah Opsi Metode Pembayaran</h3>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah/Edit Opsi Metode Pembayaran</h3>
                         <div class="flex flex-col sm:flex-row gap-2 mb-2">
                             <input type="text" id="paymentMethodOptionInput" placeholder="Nama Metode Pembayaran Baru"
                                    class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
                             <button id="addPaymentMethodOptionButton"
                                     class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
                                 Tambah
+                            </button>
+                            <button id="cancelEditPaymentMethodButton"
+                                    class="hidden bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                                Batal Edit
                             </button>
                         </div>
                         <div class="mt-4">
@@ -1817,13 +1919,17 @@
 
                     <!-- Add Status Option -->
                     <div class="p-4 bg-gray-50 rounded-lg shadow-md">
-                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah Opsi Status Utang</h3>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">Tambah/Edit Opsi Status Utang</h3>
                         <div class="flex flex-col sm:flex-row gap-2 mb-2">
                             <input type="text" id="statusOptionInput" placeholder="Nama Status Baru"
                                    class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 shadow-sm">
                             <button id="addStatusOptionButton"
                                     class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
                                 Tambah
+                            </button>
+                            <button id="cancelEditStatusButton"
+                                    class="hidden bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out">
+                                Batal Edit
                             </button>
                         </div>
                         <div class="mt-4">
