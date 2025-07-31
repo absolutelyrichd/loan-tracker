@@ -122,8 +122,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // Diperbarui: Mengganti signInWithPopup dengan signInWithRedirect
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithRedirect, signOut, getRedirectResult } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -286,7 +285,6 @@
         
         // --- Event Listeners ---
         loginBtn.addEventListener('click', () => {
-            // Diperbarui: Menggunakan signInWithRedirect
             signInWithRedirect(auth, provider).catch(error => console.error("Login with Google failed:", error));
         });
 
@@ -327,11 +325,22 @@
         });
 
         // --- Auth State Change Handler ---
+        // Menampilkan overlay saat halaman dimuat untuk menangani status redirect
+        loadingOverlay.classList.remove('hidden');
+        appContainer.classList.add('hidden');
+        loginScreen.classList.add('hidden');
+
+        // Memeriksa hasil redirect saat aplikasi dimuat
+        getRedirectResult(auth)
+          .catch((error) => {
+            console.error("Error processing redirect result:", error);
+            alert("Terjadi kesalahan saat memproses login.");
+          });
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 // User is signed in
                 loginScreen.classList.add('hidden');
-                loadingOverlay.classList.remove('hidden');
                 appContainer.classList.remove('hidden');
                 
                 userNameEl.textContent = user.displayName;
