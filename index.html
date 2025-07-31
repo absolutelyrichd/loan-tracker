@@ -464,7 +464,7 @@
                 if (index > -1) {
                     customArray[index] = newItem;
                     // Also update any debts that might use this old option value
-                    debts.forEach(async debt => { // Use async here because saveDebtToFirestore is async
+                    for (const debt of debts) { // Use for...of to correctly await async operations
                         let debtUpdated = false;
                         if (listElement.id === 'currentDebtTypeOptionsList' && debt.type === oldItem) {
                             debt.type = newItem;
@@ -482,7 +482,7 @@
                         if (debtUpdated) {
                             await saveDebtToFirestore(debt); // Save updated debt
                         }
-                    });
+                    }
                     await saveCustomDropdownOptionsToFirestore();
                     displayMessage(`"${oldItem}" berhasil diperbarui menjadi "${newItem}"!`, "success");
                 } else {
@@ -1390,24 +1390,28 @@
         });
 
         // --- New Event Listeners for deleting custom dropdown items (delegation) ---
-        currentDebtTypeOptionsList.addEventListener('click', (e) => {
+        currentDebtTypeOptionsList.addEventListener('click', async (e) => { // Added async
             if (e.target.classList.contains('delete-custom-option-button')) {
-                handleDeleteCustomOption(e, customDebtTypes);
+                console.log("Delete button clicked for Debt Type:", e.target.dataset.value); // Debug log
+                await handleDeleteCustomOption(e, customDebtTypes); // Await the async function
             }
         });
-        currentLenderOptionsList.addEventListener('click', (e) => {
+        currentLenderOptionsList.addEventListener('click', async (e) => { // Added async
             if (e.target.classList.contains('delete-custom-option-button')) {
-                handleDeleteCustomOption(e, customLenders);
+                console.log("Delete button clicked for Lender:", e.target.dataset.value); // Debug log
+                await handleDeleteCustomOption(e, customLenders); // Await the async function
             }
         });
-        currentPaymentMethodOptionsList.addEventListener('click', (e) => {
+        currentPaymentMethodOptionsList.addEventListener('click', async (e) => { // Added async
             if (e.target.classList.contains('delete-custom-option-button')) {
-                handleDeleteCustomOption(e, customPaymentMethods);
+                console.log("Delete button clicked for Payment Method:", e.target.dataset.value); // Debug log
+                await handleDeleteCustomOption(e, customPaymentMethods); // Await the async function
             }
         });
-        currentStatusOptionsList.addEventListener('click', (e) => {
+        currentStatusOptionsList.addEventListener('click', async (e) => { // Added async
             if (e.target.classList.contains('delete-custom-option-button')) {
-                handleDeleteCustomOption(e, customDebtStatuses);
+                console.log("Delete button clicked for Status:", e.target.dataset.value); // Debug log
+                await handleDeleteCustomOption(e, customDebtStatuses); // Await the async function
             }
         });
 
