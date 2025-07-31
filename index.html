@@ -285,7 +285,7 @@
         
         // --- Event Listeners ---
         loginBtn.addEventListener('click', () => {
-            signInWithRedirect(auth, provider).catch(error => console.error("Login with Google failed:", error));
+            signInWithRedirect(auth, provider);
         });
 
         logoutBtn.addEventListener('click', () => signOut(auth));
@@ -324,64 +324,78 @@
             }
         });
 
-        // --- Auth State Change Handler ---
-        // Menampilkan overlay saat halaman dimuat untuk menangani status redirect
-        loadingOverlay.classList.remove('hidden');
-        appContainer.classList.add('hidden');
-        loginScreen.classList.add('hidden');
+        // --- Main Authentication Logic ---
+        function setupUIForUser(user) {
+            loginScreen.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            
+            userNameEl.textContent = user.displayName;
+            userPhotoEl.src = user.photoURL;
+            userInfo.classList.remove('hidden');
 
-        // Memeriksa hasil redirect saat aplikasi dimuat
-        getRedirectResult(auth)
-          .catch((error) => {
-            console.error("Error processing redirect result:", error);
-            alert("Terjadi kesalahan saat memproses login.");
-          });
+            dbRef = doc(db, "users", user.uid);
+            if (unsubscribe) unsubscribe();
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // User is signed in
-                loginScreen.classList.add('hidden');
-                appContainer.classList.remove('hidden');
-                
-                userNameEl.textContent = user.displayName;
-                userPhotoEl.src = user.photoURL;
-                userInfo.classList.remove('hidden');
-
-                dbRef = doc(db, "users", user.uid);
-                if (unsubscribe) unsubscribe();
-
-                unsubscribe = onSnapshot(dbRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        debts = data.debts || [];
-                        monthlySalary = data.monthlySalary || 0;
-                    } else {
-                        debts = [];
-                        monthlySalary = 0;
-                        saveDataToFirestore(); 
-                    }
-                    salaryInput.value = monthlySalary > 0 ? monthlySalary : '';
-                    renderDashboard();
-                    loadingOverlay.classList.add('hidden');
-                }, (error) => {
-                    console.error("Error listening to document:", error);
-                    alert("Gagal mengambil data dari server.");
-                    loadingOverlay.classList.add('hidden');
-                });
-            } else {
-                // User is signed out
-                if (unsubscribe) unsubscribe();
-                dbRef = null;
-                debts = [];
-                monthlySalary = 0;
-                renderDashboard(); // Clear the dashboard
-                
+            unsubscribe = onSnapshot(dbRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    debts = data.debts || [];
+                    monthlySalary = data.monthlySalary || 0;
+                } else {
+                    debts = [];
+                    monthlySalary = 0;
+                    saveDataToFirestore(); 
+                }
+                salaryInput.value = monthlySalary > 0 ? monthlySalary : '';
+                renderDashboard();
                 loadingOverlay.classList.add('hidden');
-                appContainer.classList.add('hidden');
-                userInfo.classList.add('hidden');
-                loginScreen.classList.remove('hidden');
+            }, (error) => {
+                console.error("Error listening to document:", error);
+                alert("Gagal mengambil data dari server.");
+                loadingOverlay.classList.add('hidden');
+            });
+        }
+
+        function setupUIForGuest() {
+            if (unsubscribe) unsubscribe();
+            dbRef = null;
+            debts = [];
+            monthlySalary = 0;
+            renderDashboard();
+            
+            loadingOverlay.classList.add('hidden');
+            appContainer.classList.add('hidden');
+            userInfo.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+        }
+
+        // Initialize the app
+        async function initializeAuth() {
+            loadingOverlay.classList.remove('hidden');
+            appContainer.classList.add('hidden');
+            loginScreen.classList.add('hidden');
+            
+            try {
+                const result = await getRedirectResult(auth);
+                // If result is not null, a redirect just happened.
+                // The onAuthStateChanged observer will shortly fire with the user.
+                // If result is null, it's a normal page load.
+            } catch (error) {
+                console.error("Error from getRedirectResult:", error);
+                // Handle or log the error if needed
             }
-        });
+
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    setupUIForUser(user);
+                } else {
+                    setupUIForGuest();
+                }
+            });
+        }
+
+        initializeAuth();
+
     </script>
 </body>
 </html>
