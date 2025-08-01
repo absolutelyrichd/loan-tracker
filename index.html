@@ -484,7 +484,8 @@
 
         const handleFormSubmit = async (e) => {
             e.preventDefault();
-            const debtData = {
+            
+            const formData = {
                 name: document.getElementById('debt-name').value,
                 originalAmount: parseFloat(document.getElementById('original-amount').value),
                 monthlyPayment: parseFloat(document.getElementById('monthly-payment').value),
@@ -492,27 +493,40 @@
                 dueDate: parseInt(document.getElementById('due-date').value),
             };
             
-            // Calculate remainingAmount
-            debtData.remainingAmount = debtData.remainingMonths * debtData.monthlyPayment;
-            
-            try {
-                if (state.currentEditId) {
-                    // Update existing debt
+            if (state.currentEditId) {
+                // Logic untuk mengedit utang yang sudah ada
+                const oldDebt = state.debts.find(d => d.id === state.currentEditId);
+                const updatedDebtData = {
+                    ...formData,
+                    remainingAmount: formData.remainingMonths * formData.monthlyPayment,
+                    lastPaymentDate: oldDebt?.lastPaymentDate || null,
+                };
+                
+                try {
                     const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, state.currentEditId);
-                    await updateDoc(debtRef, debtData);
+                    await updateDoc(debtRef, updatedDebtData);
                     showNotification('Utang berhasil diperbarui!', 'success');
-                } else {
-                    // Use addDoc to add a new document with an auto-generated ID
-                    await addDoc(collection(db, `artifacts/${appId}/users/${state.userId}/debts`), {
-                        ...debtData,
-                        lastPaymentDate: null,
-                    });
-                    showNotification('Utang baru berhasil ditambahkan!', 'success');
+                    closeModal();
+                } catch (error) {
+                    console.error("Error memperbarui dokumen:", error);
+                    showNotification('Gagal menyimpan utang. Silakan coba lagi.', 'error');
                 }
-                closeModal();
-            } catch (error) {
-                console.error("Error writing document: ", error);
-                showNotification('Gagal menyimpan utang. Silakan coba lagi.', 'error');
+            } else {
+                // Logic untuk menambah utang baru
+                const newDebtData = {
+                    ...formData,
+                    remainingAmount: formData.remainingMonths * formData.monthlyPayment,
+                    lastPaymentDate: null,
+                };
+                
+                try {
+                    await addDoc(collection(db, `artifacts/${appId}/users/${state.userId}/debts`), newDebtData);
+                    showNotification('Utang baru berhasil ditambahkan!', 'success');
+                    closeModal();
+                } catch (error) {
+                    console.error("Error menambahkan dokumen:", error);
+                    showNotification('Gagal menyimpan utang. Silakan coba lagi.', 'error');
+                }
             }
         };
 
@@ -541,7 +555,7 @@
                 });
                 showNotification('Pembayaran berhasil dicatat!', 'success');
             } catch (error) {
-                console.error("Error updating document: ", error);
+                console.error("Error memperbarui dokumen pembayaran:", error);
                 showNotification('Gagal mencatat pembayaran. Silakan coba lagi.', 'error');
             }
         };
@@ -552,7 +566,7 @@
                 await deleteDoc(debtRef);
                 showNotification('Utang berhasil dihapus.', 'success');
             } catch (error) {
-                console.error("Error removing document: ", error);
+                console.error("Error menghapus dokumen:", error);
                 showNotification('Gagal menghapus utang. Silakan coba lagi.', 'error');
             }
         };
@@ -570,12 +584,12 @@
                 updateUI();
                 loadingDebtsEl.classList.add('hidden');
             }, (error) => {
-                console.error("Error getting real-time updates: ", error);
+                console.error("Error mendapatkan update real-time:", error);
             });
 
             // Get user income
             const userDocRef = doc(db, `artifacts/${appId}/users/${userId}/profile/data`);
-            getDoc(userDocRef).then(docSnap => {
+            onSnapshot(userDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     state.income = docSnap.data().income || 0;
                 } else {
@@ -583,8 +597,8 @@
                 }
                 incomeInputEl.value = state.income;
                 updateUI();
-            }).catch(error => {
-                console.error("Error getting user income: ", error);
+            }, (error) => {
+                 console.error("Error mendapatkan pendapatan user:", error);
             });
         };
 
@@ -594,7 +608,7 @@
                 await setDoc(userDocRef, { income }, { merge: true });
                 showNotification('Pendapatan berhasil disimpan!', 'success');
             } catch (error) {
-                console.error("Error saving income: ", error);
+                console.error("Error menyimpan pendapatan:", error);
                 showNotification('Gagal menyimpan pendapatan. Silakan coba lagi.', 'error');
             }
         };
@@ -651,7 +665,7 @@
             try {
                 await signOut(auth);
             } catch (error) {
-                console.error("Error signing out: ", error);
+                console.error("Error saat keluar:", error);
             }
         });
 
