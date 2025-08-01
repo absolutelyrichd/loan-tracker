@@ -67,7 +67,7 @@
     </style>
 </head>
 <body class="min-h-screen">
-    <!-- Kontainer Aplikasi -->
+    <!-- Aplikasi Kontainer -->
     <div id="app-container" class="container mx-auto max-w-7xl hidden">
         <header class="text-center py-10 mb-8">
             <h1 class="text-5xl sm:text-6xl font-extrabold text-white tracking-wide">
@@ -221,7 +221,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, addDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Configuration
         const firebaseConfig = {
@@ -446,16 +446,21 @@
                 remainingMonths: parseInt(document.getElementById('remaining-months').value),
                 dueDate: parseInt(document.getElementById('due-date').value),
             };
-
+            
+            // Calculate remainingAmount
             debtData.remainingAmount = debtData.remainingMonths * debtData.monthlyPayment;
             
             try {
                 if (state.currentEditId) {
+                    // Update existing debt
                     const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, state.currentEditId);
                     await updateDoc(debtRef, debtData);
                 } else {
-                    const newDebtRef = doc(collection(db, `artifacts/${appId}/users/${state.userId}/debts`));
-                    await setDoc(newDebtRef, { ...debtData, id: newDebtRef.id, lastPaymentDate: null });
+                    // Fix: Use addDoc to add a new document with an auto-generated ID
+                    await addDoc(collection(db, `artifacts/${appId}/users/${state.userId}/debts`), {
+                        ...debtData,
+                        lastPaymentDate: null,
+                    });
                 }
                 closeModal();
             } catch (error) {
@@ -501,7 +506,7 @@
                     const data = doc.data();
                     // Convert Firestore Timestamp to JS Date
                     const lastPaymentDate = data.lastPaymentDate?.toDate ? data.lastPaymentDate.toDate() : data.lastPaymentDate;
-                    return { ...data, lastPaymentDate };
+                    return { ...data, id: doc.id, lastPaymentDate };
                 });
                 updateUI();
                 loadingDebtsEl.classList.add('hidden');
