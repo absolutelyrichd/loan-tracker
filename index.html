@@ -9,27 +9,27 @@
     <!-- Animate.css untuk animasi dasar -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <style>
-        /* Mengimpor font premium */
+        /* Import premium fonts */
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Montserrat:wght@500;700;800&display=swap');
         
         body {
             font-family: 'Poppins', sans-serif;
-            background: #111827; /* Warna fallback */
+            background: #111827; /* Fallback color */
             background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             color: #e5e7eb;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1.5rem; /* Tambahkan padding untuk mobile */
+            padding: 1.5rem; /* Add padding for mobile */
         }
         h1, h2, h3 {
             font-family: 'Montserrat', sans-serif;
         }
 
-        /* Gaya Glassmorphism */
+        /* Glassmorphism style */
         .glass-card {
-            background-color: rgba(255, 255, 255, 0.08); /* Sedikit lebih transparan */
+            background-color: rgba(255, 255, 255, 0.08); /* Slightly more transparent */
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -45,7 +45,7 @@
         }
         .glass-input:focus {
             outline: none;
-            border-color: #6366f1; /* Warna aksen yang lebih halus */
+            border-color: #6366f1; /* Finer accent color */
         }
         .glass-btn {
             background-color: rgba(255, 255, 255, 0.05);
@@ -57,17 +57,37 @@
             box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
         }
 
-        /* Animasi modal */
+        /* Modal animation */
         .modal-content {
             animation-duration: 0.3s;
         }
         .modal {
             animation-duration: 0.3s;
         }
+
+        /* Notification message style */
+        #notification-message {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            max-width: 300px;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            color: white;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .bg-success {
+            background-color: #4CAF50;
+        }
+        .bg-error {
+            background-color: #F44336;
+        }
     </style>
 </head>
 <body class="min-h-screen">
-    <!-- Aplikasi Kontainer -->
+    <!-- Application Container -->
     <div id="app-container" class="container mx-auto max-w-7xl hidden">
         <header class="text-center py-10 mb-8">
             <h1 class="text-5xl sm:text-6xl font-extrabold text-white tracking-wide">
@@ -84,21 +104,21 @@
             </div>
         </header>
 
-        <!-- Ringkasan Dashboard -->
+        <!-- Dashboard Summary -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            <!-- Total Sisa Utang -->
+            <!-- Total Remaining Debt -->
             <div id="total-debt-card" class="flex flex-col items-center p-8 rounded-3xl shadow-lg transform transition-all duration-300 hover:scale-105 glass-card animate__animated animate__fadeInUp">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-credit-card text-red-400"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
                 <h3 class="mt-4 text-xl font-bold text-gray-200">Total Sisa Utang</h3>
                 <p id="total-debt-value" class="mt-2 text-3xl font-extrabold text-red-400 drop-shadow-md">Rp 0</p>
             </div>
-            <!-- Cicilan Bulan Ini -->
+            <!-- This Month's Installment -->
             <div id="monthly-payment-card" class="flex flex-col items-center p-8 rounded-3xl shadow-lg transform transition-all duration-300 hover:scale-105 glass-card animate__animated animate__fadeInUp animate__delay-1s">
                 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar text-blue-400"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
                 <h3 class="mt-4 text-xl font-bold text-gray-200">Cicilan Bulan Ini</h3>
                 <p id="monthly-payment-value" class="mt-2 text-3xl font-extrabold text-blue-400 drop-shadow-md">Rp 0</p>
             </div>
-            <!-- Kecukupan Gaji -->
+            <!-- Salary Sufficiency -->
             <div id="salary-status-card" class="flex flex-col items-center p-8 rounded-3xl shadow-lg transform transition-all duration-300 hover:scale-105 glass-card animate__animated animate__fadeInUp animate__delay-2s">
                 <svg id="salary-status-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle text-green-400"><path d="M22 11.08V12a10 10 0 1 1-5.93-8.87"/><path d="M22 4 12 14.01l-3-3"/></svg>
                 <h3 class="mt-4 text-xl font-bold text-gray-200">Kecukupan Gaji</h3>
@@ -107,7 +127,7 @@
             </div>
         </div>
 
-        <!-- Pengelolaan Pendapatan -->
+        <!-- Income Management -->
         <div class="glass-card p-6 rounded-3xl shadow-lg mb-12 animate__animated animate__fadeInUp">
             <h2 class="text-2xl font-bold mb-4 flex items-center text-gray-200">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-piggy-bank mr-2 text-green-400"><path d="M19 5c-1.5 0-2.8.5-3.8 1.4"/><path d="M2 8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-3.5a.5.5 0 0 1 .5-.5.5.5 0 0 0 .5-.5V12a.5.5 0 0 1 .5-.5.5.5 0 0 0 .5-.5V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V8a2 2 0 0 1-2-2h-2c-.7 0-1.4.1-2 .4"/><path d="M12 11V8"/><path d="M16 11V8"/><circle cx="18.5" cy="8.5" r="1.5"/></svg>
@@ -123,7 +143,7 @@
             </div>
         </div>
 
-        <!-- Daftar Utang -->
+        <!-- Debt List -->
         <div class="flex flex-col sm:flex-row justify-between items-center mb-6 animate__animated animate__fadeInUp">
             <h2 class="text-2xl font-bold text-gray-200 mb-4 sm:mb-0">Daftar Utang</h2>
             <button
@@ -135,7 +155,7 @@
             </button>
         </div>
 
-        <!-- Kontrol Filter -->
+        <!-- Filter Controls -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 animate__animated animate__fadeInUp">
             <div class="flex flex-wrap gap-2">
                 <button id="filter-all" class="py-2 px-5 rounded-full font-semibold transition-colors duration-200 bg-blue-500 text-white shadow-md">
@@ -160,11 +180,11 @@
         </div>
 
         <div id="debt-list" class="space-y-4">
-            <!-- Item-item utang akan dirender di sini oleh JavaScript -->
+            <!-- Debt items will be rendered here by JavaScript -->
             <p id="loading-debts" class="text-center text-gray-400 text-lg py-8">Memuat utang...</p>
         </div>
 
-        <!-- Modal untuk Tambah/Edit Utang -->
+        <!-- Modal to Add/Edit Debt -->
         <div id="debt-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden animate__animated animate__fadeIn">
             <div id="modal-content" class="glass-card p-8 rounded-3xl shadow-2xl w-full max-w-lg animate__animated animate__zoomIn">
                 <h2 id="modal-title" class="text-3xl font-bold text-center mb-6 text-white">Tambah Utang Baru</h2>
@@ -203,7 +223,7 @@
         </div>
     </div>
     
-    <!-- Modal Login/Signup -->
+    <!-- Login/Signup Modal -->
     <div id="auth-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center p-4 z-50 animate__animated animate__fadeIn">
         <div id="auth-modal-content" class="glass-card p-8 rounded-3xl shadow-2xl w-full max-w-lg animate__animated animate__zoomIn">
             <h2 class="text-3xl font-bold text-center mb-6 text-white">Masuk dengan Google</h2>
@@ -216,6 +236,9 @@
             <p id="auth-message" class="text-red-400 text-sm text-center mt-4"></p>
         </div>
     </div>
+
+    <!-- Notification Message Box -->
+    <div id="notification-message" class="hidden"></div>
 
     <!-- Firebase SDKs -->
     <script type="module">
@@ -249,6 +272,7 @@
         const authMessage = document.getElementById('auth-message');
         const logoutBtn = document.getElementById('logout-btn');
         const userInfo = document.getElementById('user-info');
+        const notificationMessageEl = document.getElementById('notification-message');
 
         // Application State
         let state = {
@@ -292,6 +316,27 @@
             const today = new Date();
             const date = lastPaymentDate.toDate ? lastPaymentDate.toDate() : lastPaymentDate;
             return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+        };
+
+        const showNotification = (message, type = 'success') => {
+            notificationMessageEl.textContent = message;
+            notificationMessageEl.classList.remove('bg-success', 'bg-error', 'hidden');
+            if (type === 'success') {
+                notificationMessageEl.classList.add('bg-success');
+            } else {
+                notificationMessageEl.classList.add('bg-error');
+            }
+            notificationMessageEl.classList.add('animate__animated', 'animate__fadeInDown');
+            notificationMessageEl.style.display = 'block';
+
+            setTimeout(() => {
+                notificationMessageEl.classList.remove('animate__fadeInDown');
+                notificationMessageEl.classList.add('animate__fadeOutUp');
+                setTimeout(() => {
+                    notificationMessageEl.classList.add('hidden');
+                    notificationMessageEl.classList.remove('animate__fadeOutUp');
+                }, 500);
+            }, 3000);
         };
         
         const updateUI = () => {
@@ -455,16 +500,19 @@
                     // Update existing debt
                     const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, state.currentEditId);
                     await updateDoc(debtRef, debtData);
+                    showNotification('Utang berhasil diperbarui!', 'success');
                 } else {
-                    // Fix: Use addDoc to add a new document with an auto-generated ID
+                    // Use addDoc to add a new document with an auto-generated ID
                     await addDoc(collection(db, `artifacts/${appId}/users/${state.userId}/debts`), {
                         ...debtData,
                         lastPaymentDate: null,
                     });
+                    showNotification('Utang baru berhasil ditambahkan!', 'success');
                 }
                 closeModal();
             } catch (error) {
                 console.error("Error writing document: ", error);
+                showNotification('Gagal menyimpan utang. Silakan coba lagi.', 'error');
             }
         };
 
@@ -477,24 +525,35 @@
 
         const payDebt = async (id) => {
             const debtToPay = state.debts.find(d => d.id === id);
-            if (!debtToPay || debtToPay.remainingAmount <= 0) return;
+            if (!debtToPay || debtToPay.remainingAmount <= 0) {
+                showNotification('Utang sudah lunas atau sudah dibayar bulan ini.', 'error');
+                return;
+            }
             
             const updatedRemainingAmount = debtToPay.remainingAmount - debtToPay.monthlyPayment;
             
-            const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, id);
-            await updateDoc(debtRef, {
-                remainingAmount: updatedRemainingAmount < 0 ? 0 : updatedRemainingAmount,
-                remainingMonths: debtToPay.remainingMonths - 1,
-                lastPaymentDate: new Date(),
-            });
+            try {
+                const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, id);
+                await updateDoc(debtRef, {
+                    remainingAmount: updatedRemainingAmount < 0 ? 0 : updatedRemainingAmount,
+                    remainingMonths: debtToPay.remainingMonths - 1,
+                    lastPaymentDate: new Date(),
+                });
+                showNotification('Pembayaran berhasil dicatat!', 'success');
+            } catch (error) {
+                console.error("Error updating document: ", error);
+                showNotification('Gagal mencatat pembayaran. Silakan coba lagi.', 'error');
+            }
         };
 
         const deleteDebt = async (id) => {
             try {
                 const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, id);
                 await deleteDoc(debtRef);
+                showNotification('Utang berhasil dihapus.', 'success');
             } catch (error) {
                 console.error("Error removing document: ", error);
+                showNotification('Gagal menghapus utang. Silakan coba lagi.', 'error');
             }
         };
 
@@ -533,8 +592,10 @@
             const userDocRef = doc(db, `artifacts/${appId}/users/${state.userId}/profile/data`);
             try {
                 await setDoc(userDocRef, { income }, { merge: true });
+                showNotification('Pendapatan berhasil disimpan!', 'success');
             } catch (error) {
                 console.error("Error saving income: ", error);
+                showNotification('Gagal menyimpan pendapatan. Silakan coba lagi.', 'error');
             }
         };
 
