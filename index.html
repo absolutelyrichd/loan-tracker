@@ -9,10 +9,16 @@
     <!-- Animate.css for basic animations -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        /* Mengimpor font premium */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Montserrat:wght@500;700;800&display=swap');
+        
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Poppins', sans-serif;
         }
+        h1, h2, h3 {
+            font-family: 'Montserrat', sans-serif;
+        }
+
         .modal-content {
             animation-duration: 0.3s;
         }
@@ -20,64 +26,70 @@
             animation-duration: 0.3s;
         }
         .glass-card {
-            background-color: rgba(255, 255, 255, 0.4);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background-color: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
         .glass-btn {
-            background-color: rgba(255, 255, 255, 0.4);
+            background-color: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-indigo-200 via-purple-300 to-pink-200 p-4 text-gray-800">
-    <div class="container mx-auto max-w-7xl">
+<body class="min-h-screen bg-gray-900 text-white p-4 font-poppins">
+    <div id="app-container" class="container mx-auto max-w-7xl hidden">
         <header class="text-center py-10 mb-8">
-            <h1 class="text-4xl sm:text-5xl font-extrabold text-white drop-shadow-lg">
+            <h1 class="text-5xl sm:text-6xl font-extrabold text-white tracking-wide">
                 Dashboard Pengelolaan Utang
             </h1>
-            <p class="mt-3 text-lg text-gray-700 font-semibold">
+            <p class="mt-3 text-lg text-gray-300 font-medium">
                 Kelola utang Anda dengan mudah dan pastikan keuangan tetap sehat.
             </p>
+            <div class="mt-4 flex flex-col sm:flex-row justify-center items-center gap-4">
+                <span id="user-info" class="text-gray-300 font-semibold"></span>
+                <button id="logout-btn" class="glass-btn text-white py-2 px-4 rounded-full font-semibold shadow-sm transition-all duration-200 hover:bg-white/20">
+                    Keluar
+                </button>
+            </div>
         </header>
 
         <!-- Ringkasan Dashboard -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
             <!-- Total Sisa Utang -->
             <div id="total-debt-card" class="flex flex-col items-center p-6 rounded-3xl shadow-lg transform transition-all duration-300 hover:scale-105 glass-card animate__animated animate__fadeInUp">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-credit-card text-red-600"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-                <h3 class="mt-4 text-xl font-bold">Total Sisa Utang</h3>
-                <p id="total-debt-value" class="mt-2 text-3xl font-extrabold text-red-600 drop-shadow-md">Rp 0</p>
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-credit-card text-red-400"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                <h3 class="mt-4 text-xl font-bold text-gray-200">Total Sisa Utang</h3>
+                <p id="total-debt-value" class="mt-2 text-3xl font-extrabold text-red-400 drop-shadow-md">Rp 0</p>
             </div>
             <!-- Cicilan Bulan Ini -->
             <div id="monthly-payment-card" class="flex flex-col items-center p-6 rounded-3xl shadow-lg transform transition-all duration-300 hover:scale-105 glass-card animate__animated animate__fadeInUp animate__delay-1s">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar text-indigo-600"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
-                <h3 class="mt-4 text-xl font-bold">Cicilan Bulan Ini</h3>
-                <p id="monthly-payment-value" class="mt-2 text-3xl font-extrabold text-indigo-600 drop-shadow-md">Rp 0</p>
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar text-blue-400"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+                <h3 class="mt-4 text-xl font-bold text-gray-200">Cicilan Bulan Ini</h3>
+                <p id="monthly-payment-value" class="mt-2 text-3xl font-extrabold text-blue-400 drop-shadow-md">Rp 0</p>
             </div>
             <!-- Kecukupan Gaji -->
             <div id="salary-status-card" class="flex flex-col items-center p-6 rounded-3xl shadow-lg transform transition-all duration-300 hover:scale-105 glass-card animate__animated animate__fadeInUp animate__delay-2s">
-                <svg id="salary-status-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle text-green-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-8.87"/><path d="M22 4 12 14.01l-3-3"/></svg>
-                <h3 class="mt-4 text-xl font-bold">Kecukupan Gaji</h3>
-                <p id="salary-status-text" class="mt-2 text-2xl font-extrabold">Cukup</p>
-                <p id="salary-remaining-text" class="mt-2 text-lg font-semibold">Sisa: Rp 0</p>
+                <svg id="salary-status-icon" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle text-green-400"><path d="M22 11.08V12a10 10 0 1 1-5.93-8.87"/><path d="M22 4 12 14.01l-3-3"/></svg>
+                <h3 class="mt-4 text-xl font-bold text-gray-200">Kecukupan Gaji</h3>
+                <p id="salary-status-text" class="mt-2 text-2xl font-extrabold text-white">Cukup</p>
+                <p id="salary-remaining-text" class="mt-2 text-lg text-gray-300 font-semibold">Sisa: Rp 0</p>
             </div>
         </div>
 
         <!-- Pengelolaan Pendapatan -->
         <div class="glass-card p-6 rounded-3xl shadow-lg mb-12 animate__animated animate__fadeInUp">
-            <h2 class="text-2xl font-bold mb-4 flex items-center text-gray-800">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-piggy-bank mr-2 text-green-600"><path d="M19 5c-1.5 0-2.8.5-3.8 1.4"/><path d="M2 8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-3.5a.5.5 0 0 1 .5-.5.5.5 0 0 0 .5-.5V12a.5.5 0 0 1 .5-.5.5.5 0 0 0 .5-.5V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V8a2 2 0 0 1-2-2h-2c-.7 0-1.4.1-2 .4"/><path d="M12 11V8"/><path d="M16 11V8"/><circle cx="18.5" cy="8.5" r="1.5"/></svg>
+            <h2 class="text-2xl font-bold mb-4 flex items-center text-gray-200">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-piggy-bank mr-2 text-green-400"><path d="M19 5c-1.5 0-2.8.5-3.8 1.4"/><path d="M2 8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-3.5a.5.5 0 0 1 .5-.5.5.5 0 0 0 .5-.5V12a.5.5 0 0 1 .5-.5.5.5 0 0 0 .5-.5V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V8a2 2 0 0 1-2-2h-2c-.7 0-1.4.1-2 .4"/><path d="M12 11V8"/><path d="M16 11V8"/><circle cx="18.5" cy="8.5" r="1.5"/></svg>
                 Pendapatan Bulanan
             </h2>
             <div class="flex items-center space-x-4">
                 <input
                     type="number"
                     id="income-input"
-                    class="w-full max-w-xs p-3 bg-white bg-opacity-30 border border-white rounded-xl focus:ring-2 focus:ring-green-400 focus:border-white text-lg placeholder-gray-600"
+                    class="w-full max-w-xs p-3 bg-white bg-opacity-10 border border-gray-700 rounded-xl focus:ring-2 focus:ring-green-400 focus:border-green-400 text-lg placeholder-gray-400"
                     placeholder="Pendapatan Bulanan Anda"
                 />
             </div>
@@ -85,10 +97,10 @@
 
         <!-- Daftar Utang -->
         <div class="flex flex-col sm:flex-row justify-between items-center mb-6 animate__animated animate__fadeInUp">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Daftar Utang</h2>
+            <h2 class="text-2xl font-bold text-gray-200 mb-4 sm:mb-0">Daftar Utang</h2>
             <button
                 id="add-debt-btn"
-                class="flex items-center bg-indigo-500 text-white py-3 px-6 rounded-full font-semibold shadow-md transition-all duration-200 hover:bg-indigo-600 hover:shadow-xl w-full sm:w-auto justify-center"
+                class="flex items-center bg-blue-500 text-white py-3 px-6 rounded-full font-semibold shadow-md transition-all duration-200 hover:bg-blue-600 hover:shadow-xl w-full sm:w-auto justify-center"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus mr-2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
                 Tambah Utang
@@ -98,22 +110,22 @@
         <!-- Kontrol Filter -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 animate__animated animate__fadeInUp">
             <div class="flex flex-wrap gap-2">
-                <button id="filter-all" class="py-2 px-5 rounded-full font-semibold transition-colors duration-200 bg-indigo-500 text-white shadow-md">
+                <button id="filter-all" class="py-2 px-5 rounded-full font-semibold transition-colors duration-200 bg-blue-500 text-white shadow-md">
                     Semua
                 </button>
-                <button id="filter-unpaid" class="py-2 px-5 rounded-full font-semibold transition-colors duration-200 glass-btn text-gray-800 hover:bg-white">
+                <button id="filter-unpaid" class="py-2 px-5 rounded-full font-semibold transition-colors duration-200 glass-btn text-gray-300 hover:bg-white/10">
                     Belum Dibayar
                 </button>
-                <button id="filter-paid" class="py-2 px-5 rounded-full font-semibold transition-colors duration-200 glass-btn text-gray-800 hover:bg-white">
+                <button id="filter-paid" class="py-2 px-5 rounded-full font-semibold transition-colors duration-200 glass-btn text-gray-300 hover:bg-white/10">
                     Sudah Dibayar
                 </button>
             </div>
             <div class="relative w-full sm:w-auto">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                 <input
                     type="text"
                     id="search-input"
-                    class="w-full sm:w-64 p-3 pl-10 bg-white bg-opacity-30 border border-white rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-white placeholder-gray-600"
+                    class="w-full sm:w-64 p-3 pl-10 bg-white bg-opacity-10 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400"
                     placeholder="Cari berdasarkan nama utang..."
                 />
             </div>
@@ -121,39 +133,40 @@
 
         <div id="debt-list" class="space-y-4">
             <!-- Debt items will be rendered here by JavaScript -->
+            <p id="loading-debts" class="text-center text-gray-400 text-lg py-8">Memuat utang...</p>
         </div>
 
         <!-- Modal for Add/Edit Debt -->
-        <div id="debt-modal" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-50 hidden animate__animated animate__fadeIn">
+        <div id="debt-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden animate__animated animate__fadeIn">
             <div id="modal-content" class="glass-card p-8 rounded-3xl shadow-2xl w-full max-w-lg animate__animated animate__zoomIn">
-                <h2 id="modal-title" class="text-3xl font-bold text-center mb-6 text-gray-800">Tambah Utang Baru</h2>
+                <h2 id="modal-title" class="text-3xl font-bold text-center mb-6 text-white">Tambah Utang Baru</h2>
                 <form id="debt-form" class="space-y-4">
                     <input type="hidden" id="debt-id" />
                     <div>
-                        <label class="block text-gray-700 font-semibold mb-2">Nama Utang</label>
-                        <input type="text" id="debt-name" class="w-full p-3 bg-white bg-opacity-30 border border-white rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-white placeholder-gray-600" placeholder="Contoh: KTA Bank A" required />
+                        <label class="block text-gray-300 font-semibold mb-2">Nama Utang</label>
+                        <input type="text" id="debt-name" class="w-full p-3 bg-white bg-opacity-10 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400" placeholder="Contoh: KTA Bank A" required />
                     </div>
                     <div>
-                        <label class="block text-gray-700 font-semibold mb-2">Jumlah Awal (Rp)</label>
-                        <input type="number" id="original-amount" class="w-full p-3 bg-white bg-opacity-30 border border-white rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-white placeholder-gray-600" placeholder="10000000" required />
+                        <label class="block text-gray-300 font-semibold mb-2">Jumlah Awal (Rp)</label>
+                        <input type="number" id="original-amount" class="w-full p-3 bg-white bg-opacity-10 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400" placeholder="10000000" required />
                     </div>
                     <div>
-                        <label class="block text-gray-700 font-semibold mb-2">Cicilan Bulanan (Rp)</label>
-                        <input type="number" id="monthly-payment" class="w-full p-3 bg-white bg-opacity-30 border border-white rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-white placeholder-gray-600" placeholder="500000" required />
+                        <label class="block text-gray-300 font-semibold mb-2">Cicilan Bulanan (Rp)</label>
+                        <input type="number" id="monthly-payment" class="w-full p-3 bg-white bg-opacity-10 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400" placeholder="500000" required />
                     </div>
                     <div>
-                        <label class="block text-gray-700 font-semibold mb-2">Sisa Bulan</label>
-                        <input type="number" id="remaining-months" class="w-full p-3 bg-white bg-opacity-30 border border-white rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-white placeholder-gray-600" placeholder="24" required />
+                        <label class="block text-gray-300 font-semibold mb-2">Sisa Bulan</label>
+                        <input type="number" id="remaining-months" class="w-full p-3 bg-white bg-opacity-10 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400" placeholder="24" required />
                     </div>
                     <div>
-                        <label class="block text-gray-700 font-semibold mb-2">Tanggal Jatuh Tempo (Hari)</label>
-                        <input type="number" id="due-date" min="1" max="31" class="w-full p-3 bg-white bg-opacity-30 border border-white rounded-xl focus:ring-2 focus:ring-indigo-400 focus:border-white placeholder-gray-600" placeholder="5 (tanggal 5 setiap bulan)" required />
+                        <label class="block text-gray-300 font-semibold mb-2">Tanggal Jatuh Tempo (Hari)</label>
+                        <input type="number" id="due-date" min="1" max="31" class="w-full p-3 bg-white bg-opacity-10 border border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 placeholder-gray-400" placeholder="5 (tanggal 5 setiap bulan)" required />
                     </div>
                     <div class="flex justify-end space-x-4 mt-6">
-                        <button type="button" id="close-modal-btn" class="py-3 px-6 bg-gray-200 text-gray-800 rounded-full font-semibold transition-all duration-200 hover:bg-gray-300">
+                        <button type="button" id="close-modal-btn" class="py-3 px-6 bg-gray-700 text-gray-200 rounded-full font-semibold transition-all duration-200 hover:bg-gray-600">
                             Batal
                         </button>
-                        <button type="submit" class="py-3 px-6 bg-indigo-500 text-white rounded-full font-semibold shadow-md transition-all duration-200 hover:bg-indigo-600">
+                        <button type="submit" class="py-3 px-6 bg-blue-500 text-white rounded-full font-semibold shadow-md transition-all duration-200 hover:bg-blue-600">
                             Simpan
                         </button>
                     </div>
@@ -161,314 +174,411 @@
             </div>
         </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Data state
-            let state = {
-                debts: [
-                    {
-                        id: 'debt1',
-                        name: 'Kredit Mobil',
-                        originalAmount: 120000000,
-                        monthlyPayment: 2500000,
-                        remainingAmount: 60000000,
-                        remainingMonths: 24,
-                        dueDate: 10,
-                        lastPaymentDate: new Date('2024-07-01'),
-                    },
-                    {
-                        id: 'debt2',
-                        name: 'KTA',
-                        originalAmount: 20000000,
-                        monthlyPayment: 1000000,
-                        remainingAmount: 5000000,
-                        remainingMonths: 5,
-                        dueDate: 25,
-                        lastPaymentDate: new Date('2024-07-20'),
-                    },
-                    {
-                        id: 'debt3',
-                        name: 'Kartu Kredit',
-                        originalAmount: 5000000,
-                        monthlyPayment: 500000,
-                        remainingAmount: 500000,
-                        remainingMonths: 1,
-                        dueDate: 15,
-                        lastPaymentDate: new Date('2024-07-14'),
-                    },
-                ],
-                income: 15000000,
-                filterStatus: 'all', // 'all', 'paid', 'unpaid'
-                filterName: '',
-                currentEditId: null
-            };
+    
+    <!-- Login/Signup Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center p-4 z-50 animate__animated animate__fadeIn">
+        <div id="auth-modal-content" class="glass-card p-8 rounded-3xl shadow-2xl w-full max-w-lg animate__animated animate__zoomIn">
+            <h2 class="text-3xl font-bold text-center mb-6 text-white">Masuk dengan Google</h2>
+            <div class="flex justify-center">
+                <button id="google-sign-in-btn" class="flex items-center justify-center py-3 px-6 bg-white text-gray-800 rounded-full font-semibold shadow-md transition-all duration-200 hover:bg-gray-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-6 h-6 mr-2"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.343c-1.614,4.24-6.095,7.202-11.343,7.202c-8.234,0-14.894-6.661-14.894-14.894 c0-8.234,6.66-14.894,14.894-14.894c3.309,0,6.286,1.196,8.681,3.951l6.75-6.75C34.613,4.195,29.679,2,24,2 C12.385,2,2.001,12.385,2.001,24c0,11.615,10.384,22,21.999,22c11.615,0,21.05-10.154,21.999-22V20.083z"/><path fill="#FF3D00" d="M6.306,14.671l6.75,6.75C14.733,19.387,14.07,17.221,14.07,14.894c0-3.35,0.916-6.471,2.502-9.288 L6.306,2.213C3.174,6.452,1,12.015,1,18.894c0,5.658,1.968,10.87,5.306,14.887l6.75-6.75C11.536,25.864,10.978,22.428,10.978,18.894 C10.978,17.07,11.332,15.31,11.986,13.725L6.306,14.671z"/><path fill="#4CAF50" d="M24,45.999c-6.879,0-12.442-2.174-16.894-5.553l6.75-6.75c1.554,0.569,3.22,0.916,4.894,0.916 c5.248,0,9.729-2.962,11.343-7.202l6.75,6.75C34.613,41.805,29.679,43.999,24,43.999C24,45.999,24,45.999,24,45.999z"/><path fill="#1976D2" d="M43.611,20.083H24V20h19.611C43.435,17.387,42.501,14.894,40.978,12.725L34.228,6 C32.748,8.234,31.055,9.88,29.083,11.083V20h14.528V20.083z"/></svg>
+                    Masuk dengan Google
+                </button>
+            </div>
+            <p id="auth-message" class="text-red-400 text-sm text-center mt-4"></p>
+        </div>
+    </div>
 
-            // DOM elements
-            const debtListEl = document.getElementById('debt-list');
-            const totalDebtValueEl = document.getElementById('total-debt-value');
-            const monthlyPaymentValueEl = document.getElementById('monthly-payment-value');
-            const salaryStatusIconEl = document.getElementById('salary-status-icon');
-            const salaryStatusTextEl = document.getElementById('salary-status-text');
-            const salaryRemainingTextEl = document.getElementById('salary-remaining-text');
-            const incomeInputEl = document.getElementById('income-input');
-            const addDebtBtn = document.getElementById('add-debt-btn');
-            const debtModalEl = document.getElementById('debt-modal');
-            const closeModalBtn = document.getElementById('close-modal-btn');
-            const debtFormEl = document.getElementById('debt-form');
-            const filterButtons = document.querySelectorAll('.flex.flex-wrap.gap-2 button');
-            const searchInputEl = document.getElementById('search-input');
-            const modalTitleEl = document.getElementById('modal-title');
-            
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            // Utility functions
-            const formatRupiah = (number) => {
-                return new Intl.NumberFormat('id-ID', {
-                    style: 'currency',
-                    currency: 'IDR',
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                }).format(number);
-            };
+        // Firebase Configuration dari user
+        const firebaseConfig = {
+            apiKey: "AIzaSyCye5vR5CfjVww2BJO90EfVIH0mVsq3Jt8",
+            authDomain: "loan-tracker-c58b3.firebaseapp.com",
+            projectId: "loan-tracker-c58b3",
+            storageBucket: "loan-tracker-c58b3.firebasestorage.app",
+            messagingSenderId: "674547925668",
+            appId: "1:674547925668:web:17e8896c3c7d6c35ea1c31",
+            measurementId: "G-0ZYPY4985T"
+        };
+        
+        // Variabel lingkungan Canvas (jika tersedia)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-            const hasPaidThisMonth = (lastPaymentDate) => {
-                if (!lastPaymentDate) return false;
-                const today = new Date();
-                return lastPaymentDate.getMonth() === today.getMonth() && lastPaymentDate.getFullYear() === today.getFullYear();
-            };
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-            const renderSummary = () => {
-                const today = new Date();
-                const currentMonth = today.getMonth();
-                const currentYear = today.getFullYear();
-                let totalRemaining = 0;
-                let totalMonthlyPayment = 0;
+        // Elemen UI
+        const appContainer = document.getElementById('app-container');
+        const authModal = document.getElementById('auth-modal');
+        const googleSignInBtn = document.getElementById('google-sign-in-btn');
+        const authMessage = document.getElementById('auth-message');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userInfo = document.getElementById('user-info');
 
-                state.debts.forEach(debt => {
-                    totalRemaining += debt.remainingAmount;
-                    if (debt.remainingAmount > 0) {
-                        if (debt.lastPaymentDate) {
-                            const lastPaymentMonth = debt.lastPaymentDate.getMonth();
-                            const lastPaymentYear = debt.lastPaymentDate.getFullYear();
-                            if (lastPaymentMonth !== currentMonth || lastPaymentYear !== currentYear) {
-                                totalMonthlyPayment += debt.monthlyPayment;
-                            }
-                        } else {
+        // State Aplikasi
+        let state = {
+            debts: [],
+            income: 0,
+            filterStatus: 'all',
+            filterName: '',
+            currentEditId: null,
+            userId: null
+        };
+        
+        // Elemen DOM untuk aplikasi utama
+        const debtListEl = document.getElementById('debt-list');
+        const totalDebtValueEl = document.getElementById('total-debt-value');
+        const monthlyPaymentValueEl = document.getElementById('monthly-payment-value');
+        const salaryStatusIconEl = document.getElementById('salary-status-icon');
+        const salaryStatusTextEl = document.getElementById('salary-status-text');
+        const salaryRemainingTextEl = document.getElementById('salary-remaining-text');
+        const incomeInputEl = document.getElementById('income-input');
+        const addDebtBtn = document.getElementById('add-debt-btn');
+        const debtModalEl = document.getElementById('debt-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const debtFormEl = document.getElementById('debt-form');
+        const filterButtons = document.querySelectorAll('.flex.flex-wrap.gap-2 button');
+        const searchInputEl = document.getElementById('search-input');
+        const modalTitleEl = document.getElementById('modal-title');
+        const loadingDebtsEl = document.getElementById('loading-debts');
+
+        // Fungsi utilitas
+        const formatRupiah = (number) => {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).format(number);
+        };
+
+        const hasPaidThisMonth = (lastPaymentDate) => {
+            if (!lastPaymentDate) return false;
+            const today = new Date();
+            const date = lastPaymentDate.toDate ? lastPaymentDate.toDate() : lastPaymentDate;
+            return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+        };
+        
+        const updateUI = () => {
+            renderSummary();
+            renderDebts();
+        };
+
+        const renderSummary = () => {
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            let totalRemaining = 0;
+            let totalMonthlyPayment = 0;
+
+            state.debts.forEach(debt => {
+                totalRemaining += debt.remainingAmount;
+                if (debt.remainingAmount > 0) {
+                    if (debt.lastPaymentDate) {
+                        const lastPaymentDate = debt.lastPaymentDate.toDate ? debt.lastPaymentDate.toDate() : debt.lastPaymentDate;
+                        if (lastPaymentDate.getMonth() !== currentMonth || lastPaymentDate.getFullYear() !== currentYear) {
                             totalMonthlyPayment += debt.monthlyPayment;
                         }
+                    } else {
+                        totalMonthlyPayment += debt.monthlyPayment;
                     }
-                });
-
-                totalDebtValueEl.textContent = formatRupiah(totalRemaining);
-                monthlyPaymentValueEl.textContent = formatRupiah(totalMonthlyPayment);
-
-                const remainingSalary = state.income - totalMonthlyPayment;
-                if (remainingSalary >= 0) {
-                    salaryStatusIconEl.innerHTML = `<path d="M22 11.08V12a10 10 0 1 1-5.93-8.87"/><path d="M22 4 12 14.01l-3-3"/>`;
-                    salaryStatusIconEl.classList.remove('text-red-500');
-                    salaryStatusIconEl.classList.add('text-green-500');
-                    salaryStatusTextEl.textContent = 'Cukup';
-                } else {
-                    salaryStatusIconEl.innerHTML = `<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`;
-                    salaryStatusIconEl.classList.remove('text-green-500');
-                    salaryStatusIconEl.classList.add('text-red-500');
-                    salaryStatusTextEl.textContent = 'Tidak Cukup';
                 }
-                salaryRemainingTextEl.textContent = `Sisa: ${formatRupiah(remainingSalary)}`;
-            };
-
-            const renderDebts = () => {
-                // Clear the list
-                debtListEl.innerHTML = '';
-                const today = new Date();
-                const currentMonth = today.getMonth();
-                const currentYear = today.getFullYear();
-
-                // Filter debts based on status and name
-                const filteredDebts = state.debts.filter(debt => {
-                    const statusMatch = state.filterStatus === 'all' ||
-                                      (state.filterStatus === 'paid' && hasPaidThisMonth(debt.lastPaymentDate)) ||
-                                      (state.filterStatus === 'unpaid' && !hasPaidThisMonth(debt.lastPaymentDate) && debt.remainingAmount > 0);
-                    
-                    const nameMatch = debt.name.toLowerCase().includes(state.filterName.toLowerCase());
-
-                    return statusMatch && nameMatch;
-                });
-                
-                if (filteredDebts.length === 0) {
-                    const noDebtMessage = document.createElement('p');
-                    noDebtMessage.className = 'text-center text-gray-500 text-lg py-8';
-                    noDebtMessage.textContent = 'Tidak ada utang yang cocok dengan filter.';
-                    debtListEl.appendChild(noDebtMessage);
-                    return;
-                }
-
-                filteredDebts.forEach(debt => {
-                    const debtEl = document.createElement('div');
-                    debtEl.className = 'glass-card p-6 rounded-3xl shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between transition-all duration-300 hover:shadow-xl animate__animated animate__fadeIn';
-
-                    const paidStatus = hasPaidThisMonth(debt.lastPaymentDate);
-                    const disabledPay = debt.remainingAmount <= 0 || paidStatus;
-                    const payButtonText = paidStatus ? 'Sudah Dibayar' : 'Bayar';
-                    const payButtonClasses = disabledPay
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-green-500 text-white hover:bg-green-600';
-
-                    debtEl.innerHTML = `
-                        <div class="flex-1 mb-4 md:mb-0">
-                            <h3 class="text-xl font-bold text-gray-900">${debt.name}</h3>
-                            <p class="text-gray-600">Sisa Utang: <span class="font-semibold">${formatRupiah(debt.remainingAmount)}</span></p>
-                            <p class="text-gray-600">Sisa Bulan: <span class="font-semibold">${debt.remainingMonths}</span></p>
-                            <p class="text-gray-600">Cicilan/Bulan: <span class="font-semibold">${formatRupiah(debt.monthlyPayment)}</span></p>
-                            <p class="text-sm text-gray-500 mt-1">Jatuh Tempo: Tanggal ${debt.dueDate} setiap bulan</p>
-                        </div>
-                        <div class="flex space-x-2 mt-4 md:mt-0">
-                            <button class="edit-btn p-3 bg-yellow-100 text-yellow-600 rounded-full transition-all duration-200 hover:bg-yellow-200" data-id="${debt.id}" aria-label="Edit Utang">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg>
-                            </button>
-                            <button class="delete-btn p-3 bg-red-100 text-red-600 rounded-full transition-all duration-200 hover:bg-red-200" data-id="${debt.id}" aria-label="Hapus Utang">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                            </button>
-                            <button class="pay-btn py-3 px-6 rounded-full font-semibold transition-all duration-200 ${payButtonClasses}" data-id="${debt.id}" ${disabledPay ? 'disabled' : ''}>
-                                ${payButtonText}
-                            </button>
-                        </div>
-                    `;
-                    debtListEl.appendChild(debtEl);
-                });
-                addEventListenersToDebtItems();
-            };
-
-            const addEventListenersToDebtItems = () => {
-                document.querySelectorAll('.pay-btn').forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        const id = e.currentTarget.dataset.id;
-                        payDebt(id);
-                    });
-                });
-                document.querySelectorAll('.edit-btn').forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        const id = e.currentTarget.dataset.id;
-                        editDebt(id);
-                    });
-                });
-                document.querySelectorAll('.delete-btn').forEach(button => {
-                    button.addEventListener('click', (e) => {
-                        const id = e.currentTarget.dataset.id;
-                        deleteDebt(id);
-                    });
-                });
-            };
-
-            const payDebt = (id) => {
-                state.debts = state.debts.map(debt => {
-                    if (debt.id === id && debt.remainingAmount > 0) {
-                        const updatedRemainingAmount = debt.remainingAmount - debt.monthlyPayment;
-                        return {
-                            ...debt,
-                            remainingAmount: updatedRemainingAmount < 0 ? 0 : updatedRemainingAmount,
-                            remainingMonths: debt.remainingMonths - 1,
-                            lastPaymentDate: new Date(),
-                        };
-                    }
-                    return debt;
-                });
-                updateUI();
-            };
-
-            const deleteDebt = (id) => {
-                state.debts = state.debts.filter(debt => debt.id !== id);
-                updateUI();
-            };
-
-            const openModal = (debtData = null) => {
-                debtModalEl.classList.remove('hidden');
-                state.currentEditId = debtData ? debtData.id : null;
-                modalTitleEl.textContent = debtData ? 'Edit Utang' : 'Tambah Utang Baru';
-                
-                document.getElementById('debt-id').value = debtData?.id || '';
-                document.getElementById('debt-name').value = debtData?.name || '';
-                document.getElementById('original-amount').value = debtData?.originalAmount || '';
-                document.getElementById('monthly-payment').value = debtData?.monthlyPayment || '';
-                document.getElementById('remaining-months').value = debtData?.remainingMonths || '';
-                document.getElementById('due-date').value = debtData?.dueDate || '';
-            };
-
-            const closeModal = () => {
-                debtModalEl.classList.add('hidden');
-                debtFormEl.reset();
-                state.currentEditId = null;
-            };
-
-            const handleFormSubmit = (e) => {
-                e.preventDefault();
-                const debtData = {
-                    name: document.getElementById('debt-name').value,
-                    originalAmount: parseFloat(document.getElementById('original-amount').value),
-                    monthlyPayment: parseFloat(document.getElementById('monthly-payment').value),
-                    remainingMonths: parseInt(document.getElementById('remaining-months').value),
-                    dueDate: parseInt(document.getElementById('due-date').value),
-                };
-
-                debtData.remainingAmount = debtData.remainingMonths * debtData.monthlyPayment;
-
-                if (state.currentEditId) {
-                    state.debts = state.debts.map(d => (d.id === state.currentEditId ? { ...d, ...debtData, lastPaymentDate: d.lastPaymentDate } : d));
-                } else {
-                    state.debts.push({ ...debtData, id: crypto.randomUUID(), lastPaymentDate: null });
-                }
-                updateUI();
-                closeModal();
-            };
-
-            const editDebt = (id) => {
-                const debtToEdit = state.debts.find(d => d.id === id);
-                if (debtToEdit) {
-                    openModal(debtToEdit);
-                }
-            };
-
-            const updateUI = () => {
-                renderSummary();
-                renderDebts();
-            };
-
-            // Event Listeners
-            incomeInputEl.value = state.income;
-            incomeInputEl.addEventListener('input', (e) => {
-                state.income = parseFloat(e.target.value) || 0;
-                updateUI();
             });
 
-            addDebtBtn.addEventListener('click', () => openModal());
-            closeModalBtn.addEventListener('click', closeModal);
-            debtModalEl.addEventListener('click', (e) => {
-                if (e.target.id === 'debt-modal') {
-                    closeModal();
-                }
-            });
-            debtFormEl.addEventListener('submit', handleFormSubmit);
+            totalDebtValueEl.textContent = formatRupiah(totalRemaining);
+            monthlyPaymentValueEl.textContent = formatRupiah(totalMonthlyPayment);
 
-            filterButtons.forEach(button => {
+            const remainingSalary = state.income - totalMonthlyPayment;
+            if (remainingSalary >= 0) {
+                salaryStatusIconEl.innerHTML = `<path d="M22 11.08V12a10 10 0 1 1-5.93-8.87"/><path d="M22 4 12 14.01l-3-3"/>`;
+                salaryStatusIconEl.classList.remove('text-red-400');
+                salaryStatusIconEl.classList.add('text-green-400');
+                salaryStatusTextEl.textContent = 'Cukup';
+            } else {
+                salaryStatusIconEl.innerHTML = `<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>`;
+                salaryStatusIconEl.classList.remove('text-green-400');
+                salaryStatusIconEl.classList.add('text-red-400');
+                salaryStatusTextEl.textContent = 'Tidak Cukup';
+            }
+            salaryRemainingTextEl.textContent = `Sisa: ${formatRupiah(remainingSalary)}`;
+        };
+
+        const renderDebts = () => {
+            debtListEl.innerHTML = '';
+            
+            const filteredDebts = state.debts.filter(debt => {
+                const statusMatch = state.filterStatus === 'all' ||
+                                    (state.filterStatus === 'paid' && hasPaidThisMonth(debt.lastPaymentDate)) ||
+                                    (state.filterStatus === 'unpaid' && !hasPaidThisMonth(debt.lastPaymentDate) && debt.remainingAmount > 0);
+                
+                const nameMatch = debt.name.toLowerCase().includes(state.filterName.toLowerCase());
+
+                return statusMatch && nameMatch;
+            });
+            
+            if (filteredDebts.length === 0) {
+                const noDebtMessage = document.createElement('p');
+                noDebtMessage.className = 'text-center text-gray-400 text-lg py-8';
+                noDebtMessage.textContent = 'Tidak ada utang yang cocok dengan filter.';
+                debtListEl.appendChild(noDebtMessage);
+                return;
+            }
+
+            filteredDebts.forEach(debt => {
+                const debtEl = document.createElement('div');
+                debtEl.className = 'glass-card p-6 rounded-3xl shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between transition-all duration-300 hover:shadow-xl animate__animated animate__fadeIn';
+
+                const paidStatus = hasPaidThisMonth(debt.lastPaymentDate);
+                const disabledPay = debt.remainingAmount <= 0 || paidStatus;
+                const payButtonText = paidStatus ? 'Sudah Dibayar' : 'Bayar';
+                const payButtonClasses = disabledPay
+                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                    : 'bg-green-500 text-white hover:bg-green-600';
+                
+                const remainingMonthsText = debt.remainingMonths > 0 ? `${debt.remainingMonths} bulan` : 'Lunas';
+                const lastPaymentDate = debt.lastPaymentDate ? new Date(debt.lastPaymentDate.toDate()).toLocaleDateString('id-ID') : 'Belum pernah';
+
+                debtEl.innerHTML = `
+                    <div class="flex-1 mb-4 md:mb-0">
+                        <h3 class="text-xl font-bold text-white">${debt.name}</h3>
+                        <p class="text-gray-300">Sisa Utang: <span class="font-semibold text-white">${formatRupiah(debt.remainingAmount)}</span></p>
+                        <p class="text-gray-300">Sisa Bulan: <span class="font-semibold text-white">${remainingMonthsText}</span></p>
+                        <p class="text-gray-300">Cicilan/Bulan: <span class="font-semibold text-white">${formatRupiah(debt.monthlyPayment)}</span></p>
+                        <p class="text-sm text-gray-400 mt-1">Jatuh Tempo: Tanggal ${debt.dueDate} setiap bulan</p>
+                    </div>
+                    <div class="flex space-x-2 mt-4 md:mt-0">
+                        <button class="edit-btn p-3 bg-yellow-600 text-white rounded-full transition-all duration-200 hover:bg-yellow-700" data-id="${debt.id}" aria-label="Edit Utang">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"/><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"/></svg>
+                        </button>
+                        <button class="delete-btn p-3 bg-red-600 text-white rounded-full transition-all duration-200 hover:bg-red-700" data-id="${debt.id}" aria-label="Hapus Utang">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                        </button>
+                        <button class="pay-btn py-3 px-6 rounded-full font-semibold transition-all duration-200 ${payButtonClasses}" data-id="${debt.id}" ${disabledPay ? 'disabled' : ''}>
+                            ${payButtonText}
+                        </button>
+                    </div>
+                `;
+                debtListEl.appendChild(debtEl);
+            });
+            addEventListenersToDebtItems();
+        };
+
+        const addEventListenersToDebtItems = () => {
+            document.querySelectorAll('.pay-btn').forEach(button => {
                 button.addEventListener('click', (e) => {
-                    const status = e.target.id.replace('filter-', '');
-                    state.filterStatus = status;
-                    filterButtons.forEach(btn => {
-                        btn.classList.remove('bg-indigo-500', 'text-white', 'shadow-md');
-                        btn.classList.add('glass-btn', 'text-gray-800', 'hover:bg-white');
-                    });
-                    e.target.classList.remove('glass-btn', 'text-gray-800', 'hover:bg-white');
-                    e.target.classList.add('bg-indigo-500', 'text-white', 'shadow-md');
-                    renderDebts();
+                    const id = e.currentTarget.dataset.id;
+                    payDebt(id);
                 });
             });
+            document.querySelectorAll('.edit-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    editDebt(id);
+                });
+            });
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    deleteDebt(id);
+                });
+            });
+        };
 
-            searchInputEl.addEventListener('input', (e) => {
-                state.filterName = e.target.value;
-                renderDebts();
+        const openModal = (debtData = null) => {
+            debtModalEl.classList.remove('hidden');
+            state.currentEditId = debtData ? debtData.id : null;
+            modalTitleEl.textContent = debtData ? 'Edit Utang' : 'Tambah Utang Baru';
+            
+            document.getElementById('debt-id').value = debtData?.id || '';
+            document.getElementById('debt-name').value = debtData?.name || '';
+            document.getElementById('original-amount').value = debtData?.originalAmount || '';
+            document.getElementById('monthly-payment').value = debtData?.monthlyPayment || '';
+            document.getElementById('remaining-months').value = debtData?.remainingMonths || '';
+            document.getElementById('due-date').value = debtData?.dueDate || '';
+        };
+
+        const closeModal = () => {
+            debtModalEl.classList.add('hidden');
+            debtFormEl.reset();
+            state.currentEditId = null;
+        };
+
+        const handleFormSubmit = async (e) => {
+            e.preventDefault();
+            const debtData = {
+                name: document.getElementById('debt-name').value,
+                originalAmount: parseFloat(document.getElementById('original-amount').value),
+                monthlyPayment: parseFloat(document.getElementById('monthly-payment').value),
+                remainingMonths: parseInt(document.getElementById('remaining-months').value),
+                dueDate: parseInt(document.getElementById('due-date').value),
+            };
+
+            debtData.remainingAmount = debtData.remainingMonths * debtData.monthlyPayment;
+            
+            try {
+                if (state.currentEditId) {
+                    const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, state.currentEditId);
+                    await updateDoc(debtRef, debtData);
+                } else {
+                    const newDebtRef = doc(collection(db, `artifacts/${appId}/users/${state.userId}/debts`));
+                    await setDoc(newDebtRef, { ...debtData, id: newDebtRef.id, lastPaymentDate: null });
+                }
+                closeModal();
+            } catch (error) {
+                console.error("Error writing document: ", error);
+            }
+        };
+
+        const editDebt = (id) => {
+            const debtToEdit = state.debts.find(d => d.id === id);
+            if (debtToEdit) {
+                openModal(debtToEdit);
+            }
+        };
+
+        const payDebt = async (id) => {
+            const debtToPay = state.debts.find(d => d.id === id);
+            if (!debtToPay || debtToPay.remainingAmount <= 0) return;
+            
+            const updatedRemainingAmount = debtToPay.remainingAmount - debtToPay.monthlyPayment;
+            
+            const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, id);
+            await updateDoc(debtRef, {
+                remainingAmount: updatedRemainingAmount < 0 ? 0 : updatedRemainingAmount,
+                remainingMonths: debtToPay.remainingMonths - 1,
+                lastPaymentDate: new Date(),
+            });
+        };
+
+        const deleteDebt = async (id) => {
+            try {
+                const debtRef = doc(db, `artifacts/${appId}/users/${state.userId}/debts`, id);
+                await deleteDoc(debtRef);
+            } catch (error) {
+                console.error("Error removing document: ", error);
+            }
+        };
+
+        // Fungsi terkait Firebase
+        const subscribeToFirestore = (userId) => {
+            const debtsRef = collection(db, `artifacts/${appId}/users/${userId}/debts`);
+            onSnapshot(debtsRef, (snapshot) => {
+                state.debts = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    // Firestore Timestamp ke JS Date
+                    const lastPaymentDate = data.lastPaymentDate?.toDate ? data.lastPaymentDate.toDate() : data.lastPaymentDate;
+                    return { ...data, lastPaymentDate };
+                });
+                updateUI();
+                loadingDebtsEl.classList.add('hidden');
+            }, (error) => {
+                console.error("Error getting real-time updates: ", error);
             });
 
-            // Initial render
-            updateUI();
+            // Mendapatkan pendapatan pengguna
+            const userDocRef = doc(db, `artifacts/${appId}/users/${userId}/profile/data`);
+            getDoc(userDocRef).then(docSnap => {
+                if (docSnap.exists()) {
+                    state.income = docSnap.data().income || 0;
+                } else {
+                    state.income = 0;
+                }
+                incomeInputEl.value = state.income;
+                updateUI();
+            }).catch(error => {
+                console.error("Error getting user income: ", error);
+            });
+        };
+
+        const saveIncomeToFirestore = async (income) => {
+            const userDocRef = doc(db, `artifacts/${appId}/users/${state.userId}/profile/data`);
+            try {
+                await setDoc(userDocRef, { income }, { merge: true });
+            } catch (error) {
+                console.error("Error saving income: ", error);
+            }
+        };
+
+        // Event Listeners untuk aplikasi utama
+        incomeInputEl.addEventListener('input', (e) => {
+            state.income = parseFloat(e.target.value) || 0;
+            saveIncomeToFirestore(state.income);
+        });
+
+        addDebtBtn.addEventListener('click', () => openModal());
+        closeModalBtn.addEventListener('click', closeModal);
+        debtModalEl.addEventListener('click', (e) => {
+            if (e.target.id === 'debt-modal') {
+                closeModal();
+            }
+        });
+        debtFormEl.addEventListener('submit', handleFormSubmit);
+
+        filterButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const status = e.target.id.replace('filter-', '');
+                state.filterStatus = status;
+                filterButtons.forEach(btn => {
+                    btn.classList.remove('bg-blue-500', 'text-white', 'shadow-md');
+                    btn.classList.add('glass-btn', 'text-gray-300', 'hover:bg-white/10');
+                });
+                e.target.classList.remove('glass-btn', 'text-gray-300', 'hover:bg-white/10');
+                e.target.classList.add('bg-blue-500', 'text-white', 'shadow-md');
+                renderDebts();
+            });
+        });
+
+        searchInputEl.addEventListener('input', (e) => {
+            state.filterName = e.target.value;
+            renderDebts();
+        });
+
+
+        // Penangan Autentikasi Google
+        googleSignInBtn.addEventListener('click', async () => {
+            authMessage.textContent = 'Memuat...';
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                // Auth state change listener akan menangani sisa proses
+            } catch (error) {
+                console.error(error);
+                authMessage.textContent = 'Gagal masuk dengan Google: ' + error.message;
+            }
+        });
+        
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Error signing out: ", error);
+            }
+        });
+
+        // Auth State Change Listener
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Pengguna sudah login
+                state.userId = user.uid;
+                appContainer.classList.remove('hidden');
+                authModal.classList.add('hidden');
+                userInfo.textContent = `Masuk sebagai: ${user.displayName || user.email}`;
+                subscribeToFirestore(user.uid);
+            } else {
+                // Pengguna keluar
+                state.userId = null;
+                appContainer.classList.add('hidden');
+                authModal.classList.remove('hidden');
+                loadingDebtsEl.classList.remove('hidden');
+                debtListEl.innerHTML = '';
+            }
         });
     </script>
 </body>
